@@ -3,7 +3,7 @@ project(gc_arm_description)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY urdf config launch rviz
+install(DIRECTORY urdf config launch rviz meshes
   DESTINATION share/${PROJECT_NAME}
 )
 

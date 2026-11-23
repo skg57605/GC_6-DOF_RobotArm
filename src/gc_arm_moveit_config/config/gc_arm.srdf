@@ -2,14 +2,14 @@
 <!--
   GC 6축 로봇팔 SRDF
 
-  자세 (URDF 순기구학으로 확인, r/h는 실측 전 임시값):
+  자세 (URDF 순기구학으로 확인, r=0 / h=82 mm는 CAD 기준):
     zero    : 전 관절 0 — 팔이 +x 방향 수평으로 완전히 펴짐 (중력 부하 최대)
     upright : 팔 수직 — 중력 부하 최소, 대기 자세로 적합
     ready   : 상완 수직 + 전완 수평 + 툴 아래 방향 (L자)
 
-  disable_collisions: 관절 한계 내 무작위 20,000 자세 샘플링으로 산출
-    (Adjacent = 인접 링크, Default = 항상 접촉, Never = 한 번도 접촉 안 함)
-    현재 충돌 형상은 단순 도형이므로 CAD 메시 적용 후 재계산 필요.
+  disable_collisions: CAD 볼록 껍질 충돌 형상 + 작업대(table)로, 관절 한계 내 무작위 20,000 자세 샘플링하여 산출
+    (gc_arm_description/scripts/compute_collision_matrix.py). Adjacent = 인접 링크, Never = 한 번도 접촉 안 함.
+    CAD/관절 한계가 바뀌면 재계산할 것. zero/upright/ready 자세는 충돌 없음 확인.
 -->
 <robot name="gc_arm">
   <group name="arm">
@@ -42,21 +42,25 @@
   </group_state>
 
   <disable_collisions link1="base_link" link2="link1" reason="Adjacent"/>
-  <disable_collisions link1="base_link" link2="link2" reason="Default"/>
-  <disable_collisions link1="base_link" link2="link3" reason="Never"/>
+  <disable_collisions link1="base_link" link2="table" reason="Adjacent"/>
   <disable_collisions link1="link1" link2="link2" reason="Adjacent"/>
+  <disable_collisions link1="link2" link2="link3" reason="Adjacent"/>
+  <disable_collisions link1="link3" link2="link4" reason="Adjacent"/>
+  <disable_collisions link1="link4" link2="link5" reason="Adjacent"/>
+  <disable_collisions link1="link5" link2="link6" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="link3" reason="Never"/>
+  <disable_collisions link1="base_link" link2="link6" reason="Never"/>
   <disable_collisions link1="link1" link2="link3" reason="Never"/>
   <disable_collisions link1="link1" link2="link4" reason="Never"/>
   <disable_collisions link1="link1" link2="link5" reason="Never"/>
   <disable_collisions link1="link1" link2="link6" reason="Never"/>
-  <disable_collisions link1="link2" link2="link3" reason="Adjacent"/>
-  <disable_collisions link1="link2" link2="link4" reason="Default"/>
+  <disable_collisions link1="link1" link2="table" reason="Never"/>
   <disable_collisions link1="link2" link2="link5" reason="Never"/>
   <disable_collisions link1="link2" link2="link6" reason="Never"/>
-  <disable_collisions link1="link3" link2="link4" reason="Adjacent"/>
   <disable_collisions link1="link3" link2="link5" reason="Never"/>
   <disable_collisions link1="link3" link2="link6" reason="Never"/>
-  <disable_collisions link1="link4" link2="link5" reason="Adjacent"/>
-  <disable_collisions link1="link4" link2="link6" reason="Default"/>
-  <disable_collisions link1="link5" link2="link6" reason="Adjacent"/>
+
+  <!-- 검사 유지 (실제 충돌 가능, 20,000 샘플 기준 충돌 비율):
+       base_link-link2 43%, base_link-link4 0.01%, base_link-link5 ~0.01%, link2-link4 2.3%, link4-link6 2.7%,
+       table-link2 46%, table-link3 15%, table-link4 18%, table-link5 12%, table-link6 6% -->
 </robot>

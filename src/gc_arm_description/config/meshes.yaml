@@ -1,0 +1,57 @@
+# CAD 메시 배치 설정
+#
+# CAD(STL)는 조립품 공통 좌표계, mm 단위, "upright" 자세(팔 수직)로 내보내져 있음.
+# scripts/compute_mesh_origins.py가 아래 cad 정보와 joints.yaml의 DH로부터
+# 각 링크 프레임 기준 메시 origin을 계산해 links 항목을 갱신한다.
+#   python3 src/gc_arm_description/scripts/compute_mesh_origins.py
+#
+# 메시가 없는 링크는 links에서 빼면 단순 도형으로 표시된다.
+
+cad:
+  scale: 0.001                 # mm → m
+  j1_axis_xy_mm: [7.5, 0.0]    # CAD 좌표에서 J1 회전축 (x, y)
+  base_bottom_z_mm: -88.6      # 베이스 바닥면 z  → base_link 원점 높이
+  j2_axis_z_mm: -6.6           # J2 축 높이 (h = j2 - base_bottom = 82.0 mm)
+  # CAD → base_link 회전(z축). CAD에서 J2/J3/J5 축은 x 방향, URDF에서는 y 방향이므로 ±90.
+  # -90: CAD +y 방향이 로봇 정면(+x). 정면이 반대라면 90으로 바꾸고 스크립트 재실행.
+  yaw_deg: -90.0
+  # CAD 조립품의 관절 자세 [deg] (URDF 관절 정의 기준) — upright
+  pose_deg: [0.0, 90.0, 0.0, 0.0, 0.0, 0.0]
+
+# 자동 생성 — 직접 수정하지 말 것 (scripts/compute_mesh_origins.py)
+links:
+  base_link:
+    visual: Base.stl
+    collision: Base.stl
+    xyz: [0.000000, 0.007500, 0.088600]
+    rpy: [0.000000, 0.000000, -1.570796]
+  link1:
+    visual: Link1.stl
+    collision: Link1.stl
+    xyz: [0.000000, 0.007500, 0.088600]
+    rpy: [0.000000, 0.000000, -1.570796]
+  link2:
+    visual: Link2.stl
+    collision: Link2.stl
+    xyz: [0.006600, 0.000000, -0.007500]
+    rpy: [0.000000, -1.570796, -3.141593]
+  link3:
+    visual: Link3.stl
+    collision: Link3.stl
+    xyz: [-0.238400, 0.000000, -0.007500]
+    rpy: [0.000000, -1.570796, -3.141593]
+  link4:
+    visual: Link4.stl
+    collision: Link4.stl
+    xyz: [0.000000, -0.007500, -0.238400]
+    rpy: [0.000000, 0.000000, 1.570796]
+  link5:
+    visual: Link5.stl
+    collision: Link5.stl
+    xyz: [0.000000, 0.483400, -0.007500]
+    rpy: [0.000000, -1.570796, 1.570796]
+  link6:
+    visual: Flange.stl
+    collision: Flange.stl
+    xyz: [0.000000, -0.007500, -0.483400]
+    rpy: [0.000000, 0.000000, 1.570796]

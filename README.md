@@ -45,8 +45,7 @@ ros2 launch gc_arm_moveit_config moveit.launch.py mock_all:=true
 ```
 - 이름 붙은 자세: `zero`(수평 신전), `upright`(수직, 중력 부하 최소), `ready`(L자, 툴 아래)
 - 기본 속도/가속도 스케일 0.1 — 실기 초기 시험은 이 값 유지
-- ⚠️ 바닥/작업대가 모델링되어 있지 않아 MoveIt이 베이스 아래(z < 0)로 경로를 만들 수 있음.
-  실기에서는 RViz 목표를 작업 공간 안에서만 지정할 것 (바닥 충돌 객체 추가 예정)
+- 작업대 상판(base 바닥면 높이)이 충돌 객체로 포함되어 있어 MoveIt은 작업대를 관통하는 경로를 만들지 않음
 
 관절 움직여 보기:
 ```bash
@@ -59,6 +58,22 @@ ros2 topic echo /dynamic_joint_states      # 전류·온도 포함
 `src/gc_arm_description/config/joints.yaml`에서 실제로 버스에 연결한 관절만 `enabled: true`로 바꾼다.
 예: AK45-36 2대(J2, J3) + SERVO42D 1대(J4) → `joint2`, `joint3`, `joint4`만 true.
 나머지 관절은 mock으로 동작하므로 6축 컨트롤러/MoveIt을 그대로 쓸 수 있다.
+
+## CAD 메시
+
+`src/gc_arm_description/meshes/visual/*.stl` (CAD 원본, mm) + `meshes/collision/*.stl` (볼록 껍질).
+CAD는 조립품 공통 좌표계·upright 자세로 내보낸 것이며, 배치는 `config/meshes.yaml`의 `cad` 항목으로 계산한다.
+
+CAD를 다시 내보냈거나 파트를 추가했을 때:
+```bash
+cp <새 STL> src/gc_arm_description/meshes/visual/
+python3 src/gc_arm_description/scripts/compute_mesh_origins.py --collision   # trimesh 필요: pip install trimesh
+# 충돌 제외 목록 재계산 (trimesh, python-fcl 필요) → 출력을 gc_arm.srdf에 반영
+xacro src/gc_arm_description/urdf/gc_arm.urdf.xacro > /tmp/gc_arm.urdf
+python3 src/gc_arm_description/scripts/compute_collision_matrix.py /tmp/gc_arm.urdf
+```
+- 단순 도형으로 보기: `use_meshes:=false` (xacro 인자)
+- 작업대 상판(1 m × 1 m, base 바닥면 = z 0) 충돌 링크 포함, 크기 변경/제거: `table_size:=0`
 
 ## 안전 동작 (gc_arm_hardware)
 

@@ -8,13 +8,19 @@
   <!-- can_interface: 'auto'(또는 빈 값)면 YAML 값 사용, 'sim'이면 시뮬레이션 버스 -->
   <xacro:arg name="can_interface" default="auto"/>
   <xacro:arg name="use_ros2_control" default="true"/>
+  <!-- meshes_config: CAD 메시 배치 설정, use_meshes: false면 단순 도형만 -->
+  <xacro:arg name="meshes_config" default="$(find gc_arm_description)/config/meshes.yaml"/>
+  <xacro:arg name="use_meshes" default="true"/>
+  <!-- table_size: 작업대 상판 충돌 박스 한 변 [m], 0이면 생략 -->
+  <xacro:arg name="table_size" default="1.0"/>
 
   <xacro:property name="cfg" value="${xacro.load_yaml('$(arg joints_config)')}"/>
 
   <xacro:include filename="gc_arm.macro.xacro"/>
   <xacro:include filename="gc_arm.ros2_control.xacro"/>
 
-  <xacro:gc_arm cfg="${cfg}"/>
+  <xacro:property name="meshes" value="${xacro.load_yaml('$(arg meshes_config)') if '$(arg use_meshes)'.lower() == 'true' else None}"/>
+  <xacro:gc_arm cfg="${cfg}" meshes="${meshes}" table_size="$(arg table_size)"/>
 
   <xacro:if value="$(arg use_ros2_control)">
     <xacro:gc_arm_ros2_control cfg="${cfg}"

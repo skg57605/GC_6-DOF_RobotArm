@@ -7,15 +7,15 @@
 # 관절 좌표 정의: q_joint = direction × θ_actuator / ratio + offset
 #   θ_actuator: AK = 액추에이터 출력축 각도, MKS = 모터축 각도
 #
-# TODO(실측/확인): geometry.r, geometry.h, 각 관절 direction/offset/가동범위, AK 극쌍수
+# TODO(실측/확인): 각 관절 direction/offset/가동범위, AK 극쌍수  (geometry r/h는 CAD로 확정)
 
 hardware:
   can_interface: can0          # 'sim' = 시뮬레이션 버스 (실제 프로토콜 경로를 하드웨어 없이 시험)
   activate_timeout_ms: 1000
 
 geometry:                      # Standard DH [m]
-  r: 0.0                       # a1 (TODO 실측)
-  h: 0.10                      # d1 (TODO 실측)
+  r: 0.0                       # a1 — CAD 확인: J2 축이 J1 축과 교차
+  h: 0.082                     # d1 — CAD: 베이스 바닥면 ~ J2 축 82.0 mm
   a2: 0.245
   d4: 0.245
   d6: 0.059
