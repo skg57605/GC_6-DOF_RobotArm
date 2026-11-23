@@ -17,7 +17,13 @@ add_library(${PROJECT_NAME} SHARED
   src/ak_servo_protocol.cpp
   src/ak_mit_protocol.cpp
   src/mks_protocol.cpp
+  src/joint_config.cpp
+  src/actuator.cpp
+  src/simulated_bus.cpp
+  src/arm_driver.cpp
 )
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
@@ -30,6 +36,8 @@ set(TEST_SOURCES
   test/test_ak_servo.cpp
   test/test_ak_mit.cpp
   test/test_mks.cpp
+  test/test_joint.cpp
+  test/test_arm_driver.cpp
 )
 
 if(ament_cmake_FOUND)
@@ -49,6 +57,7 @@ if(ament_cmake_FOUND)
   endif()
 
   ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+  ament_export_dependencies(Threads)
   ament_package()
 else()
   message(STATUS "ament_cmake 없음 → 순수 CMake 빌드")
