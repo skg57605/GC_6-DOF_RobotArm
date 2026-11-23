@@ -14,14 +14,14 @@ ROS 2 Jazzy (Ubuntu 24.04) + ros2_control + MoveIt 2 기반 6축 로봇팔 제�
 | J1 | MKS SERVO57D CAN | 1 (0x01) | – | 직결 1:1 | **1** |
 | J2 | CubeMars AK45-36 v3.0 | 101 (0x65) | 36:1 | 4:1 | **144** (액추에이터 출력 기준 4) |
 | J3 | CubeMars AK45-36 v3.0 | 102 (0x66) | 36:1 | 2:1 | **72** (액추에이터 출력 기준 2) |
-| J4 | MKS SERVO42D CAN | 2 (0x02) | – | 직결 1:1 | **1** |
+| J4 | MKS SERVO42D CAN | 2 (0x02) | – | **20:1 (자체 제작 예정)** | **20** |
 | J5 | CubeMars AK45-10 v3.0 | 103 (0x67) | 10:1 | 18/7 ≈ 2.571428571:1 | **≈25.714** (액추에이터 출력 기준 18/7) |
 | J6 | MKS SERVO42D CAN | 3 (0x03) | – | 직결 1:1 | **1** |
 
 - AK 액추에이터가 보고하는 위치는 **액추에이터 출력축 기준**이므로, 소프트웨어에서는 외부 감속비(4, 2, 18/7)만 적용한다:
   `q_joint = θ_actuator_out / ratio_ext`
 - J5 외부 감속비 2.571428571은 18/7로 보고 정확한 유리수로 다룬다 (누적 오차 방지). → 실제 기어 잇수 확인 필요.
-- MKS 엔코더: 16384 count/rev, 직결이므로 `q_joint = count / 16384 × 2π`.
+- MKS 엔코더: 16384 count/rev (모터축), `q_joint = count / 16384 × 2π / ratio` (J1·J6 직결 ratio=1, J4 ratio=20)
 
 ### 1.1.1 모터 작동 모드
 
@@ -111,7 +111,8 @@ candump -tz can0
 | J4 (42D 직결, J5=90° 시) | 3.2 Nm | 유지토크의 **약 8배** | 4.4 Nm | **약 11배** |
 | J1 (57D 직결) | 관성 약 1.2 kg·m² | 1.5 Nm 시 1.3 rad/s² | 관성 약 1.8 kg·m² | 0.8 rad/s² |
 
-- ⚠️ **J4: 직결 불가.** 필요 감속비 약 1:20 이상 (유지토크 0.4 Nm × 동적 여유 0.6 × 효율 0.85 기준)
+- ⚠️ **J4: 직결 불가.** 필요 감속비 약 1:20 이상 (유지토크 0.4 Nm × 동적 여유 0.6 × 효율 0.85 기준) → **20:1 감속기 자체 제작으로 결정**
+  (90°/s 관절 속도 시 모터 300 rpm — 해당 속도의 토크-속도 곡선으로 최종 확인)
 - ⚠️ J6: 직결 시 정격 2 kg 기준 허용 CoM 편심 약 12 mm. 그리퍼 편심이 있으면 감속 필요
 - ⚠️ J1: 관성비 과대(로터 대비 수천 배) → 강성/진동 문제. 1:5~1:10 감속 권장
 - ✅ J2/J3/J5: 정격 하중은 1시간 연속 한계의 53~69% → 충분. 극한(단시간)은 83~94%로 가속 토크 여유가 작음
@@ -139,14 +140,13 @@ candump -tz can0
 ### 4.2 패키지 구성 (ROS 2 workspace `src/`)
 
 ```
-gc_arm_description/      URDF/xacro, 메시, ros2_control xacro
-gc_arm_hardware/         ros2_control SystemInterface 플러그인
-  ├─ can/                 SocketCAN 래퍼 (단일 소켓, 버스 공유)
-  ├─ drivers/ak_motor     CubeMars AK (Servo 모드 → MIT 모드 확장)
-  └─ drivers/mks_motor    MKS SERVO42D/57D
-gc_arm_tools/            단독 테스트 CLI (Phase 0)
-gc_arm_bringup/          launch, controllers.yaml
-gc_arm_moveit_config/    MoveIt 2 설정
+GC_6-DOF_RobotArm/          ← 저장소 루트 = colcon 워크스페이스
+└─ src/
+   ├─ gc_arm_drivers/       ✅ SocketCAN + AK(Servo/MIT) + MKS 프로토콜, gc_motor_cli (Phase 0)
+   ├─ gc_arm_hardware/      ros2_control SystemInterface 플러그인 (gc_arm_drivers 사용)
+   ├─ gc_arm_description/   URDF/xacro, 메시, ros2_control xacro
+   ├─ gc_arm_bringup/       launch, controllers.yaml
+   └─ gc_arm_moveit_config/ MoveIt 2 설정
 ```
 
 ### 4.3 설계 원칙
@@ -169,7 +169,7 @@ gc_arm_moveit_config/    MoveIt 2 설정
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| Phase 0 | `gc_arm_tools`: 모터별 enable/상태·엔코더 읽기/위치·속도 명령, 단일 버스 혼합 구동 검증 | 진행 중 (수동 시험) |
+| Phase 0 | `gc_arm_drivers` + `gc_motor_cli`: 모터별 구동/조회, 혼합 버스 시험, MKS 추종 방식 비교 | 코드 완료, 실기 시험 대기 |
 | Phase 1 | 드라이버 라이브러리 정리 + 프레임 인코딩/디코딩 단위 테스트 | |
 | Phase 2 | ros2_control 하드웨어 인터페이스 (mock → 실기) | |
 | Phase 3 | URDF + 컨트롤러 설정, RViz 관절 구동 | |

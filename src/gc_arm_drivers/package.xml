@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>gc_arm_drivers</name>
+  <version>0.1.0</version>
+  <description>
+    CAN drivers for the GC 6-DOF robot arm: SocketCAN wrapper, CubeMars AK (servo/MIT)
+    and MKS SERVO42D/57D protocols, plus the gc_motor_cli bench test tool.
+  </description>
+  <maintainer email="todo@example.com">skg57605</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
