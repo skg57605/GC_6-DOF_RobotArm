@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GC 6축 로봇팔 SRDF
+
+  자세 (URDF 순기구학으로 확인, r/h는 실측 전 임시값):
+    zero    : 전 관절 0 — 팔이 +x 방향 수평으로 완전히 펴짐 (중력 부하 최대)
+    upright : 팔 수직 — 중력 부하 최소, 대기 자세로 적합
+    ready   : 상완 수직 + 전완 수평 + 툴 아래 방향 (L자)
+
+  disable_collisions: 관절 한계 내 무작위 20,000 자세 샘플링으로 산출
+    (Adjacent = 인접 링크, Default = 항상 접촉, Never = 한 번도 접촉 안 함)
+    현재 충돌 형상은 단순 도형이므로 CAD 메시 적용 후 재계산 필요.
+-->
+<robot name="gc_arm">
+  <group name="arm">
+    <chain base_link="base_link" tip_link="tool0"/>
+  </group>
+
+  <group_state name="zero" group="arm">
+    <joint name="joint1" value="0"/>
+    <joint name="joint2" value="0"/>
+    <joint name="joint3" value="0"/>
+    <joint name="joint4" value="0"/>
+    <joint name="joint5" value="0"/>
+    <joint name="joint6" value="0"/>
+  </group_state>
+  <group_state name="upright" group="arm">
+    <joint name="joint1" value="0"/>
+    <joint name="joint2" value="1.5708"/>
+    <joint name="joint3" value="0"/>
+    <joint name="joint4" value="0"/>
+    <joint name="joint5" value="0"/>
+    <joint name="joint6" value="0"/>
+  </group_state>
+  <group_state name="ready" group="arm">
+    <joint name="joint1" value="0"/>
+    <joint name="joint2" value="1.5708"/>
+    <joint name="joint3" value="-1.5708"/>
+    <joint name="joint4" value="0"/>
+    <joint name="joint5" value="-1.5708"/>
+    <joint name="joint6" value="0"/>
+  </group_state>
+
+  <disable_collisions link1="base_link" link2="link1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="link2" reason="Default"/>
+  <disable_collisions link1="base_link" link2="link3" reason="Never"/>
+  <disable_collisions link1="link1" link2="link2" reason="Adjacent"/>
+  <disable_collisions link1="link1" link2="link3" reason="Never"/>
+  <disable_collisions link1="link1" link2="link4" reason="Never"/>
+  <disable_collisions link1="link1" link2="link5" reason="Never"/>
+  <disable_collisions link1="link1" link2="link6" reason="Never"/>
+  <disable_collisions link1="link2" link2="link3" reason="Adjacent"/>
+  <disable_collisions link1="link2" link2="link4" reason="Default"/>
+  <disable_collisions link1="link2" link2="link5" reason="Never"/>
+  <disable_collisions link1="link2" link2="link6" reason="Never"/>
+  <disable_collisions link1="link3" link2="link4" reason="Adjacent"/>
+  <disable_collisions link1="link3" link2="link5" reason="Never"/>
+  <disable_collisions link1="link3" link2="link6" reason="Never"/>
+  <disable_collisions link1="link4" link2="link5" reason="Adjacent"/>
+  <disable_collisions link1="link4" link2="link6" reason="Default"/>
+  <disable_collisions link1="link5" link2="link6" reason="Adjacent"/>
+</robot>

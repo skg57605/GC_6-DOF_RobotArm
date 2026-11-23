@@ -10,6 +10,8 @@
   | 5 | 0     | +90   | 0    | q5        |
   | 6 | 0     | 0     | d6   | q6        |
 
+  충돌 형상(collision)은 시각 형상과 동일한 단순 도형 (MoveIt 자기충돌 검사용, 실제 CAD로 교체 예정).
+
   변환: 관절 i는 자기 프레임의 z축으로 회전. DH 행 i의 상수부 Tz(d)·Tx(a)·Rx(alpha)는
   다음 관절(i+1)의 origin(xyz="a 0 d", rpy="alpha 0 0")으로 들어간다.
   J3의 theta 오프셋(+90°)은 J4 origin의 회전 Rz(90°)·Rx(90°) = rpy(90°, 0, 90°)로 처리.
@@ -37,6 +39,10 @@
         <geometry><cylinder radius="0.07" length="${base_len}"/></geometry>
         <material name="gc_dark"/>
       </visual>
+      <collision>
+        <origin xyz="0 0 ${base_len / 2}"/>
+        <geometry><cylinder radius="0.07" length="${base_len}"/></geometry>
+      </collision>
     </link>
 
     <!-- J1: 베이스 회전 -->
@@ -53,6 +59,10 @@
         <geometry><sphere radius="0.05"/></geometry>
         <material name="gc_blue"/>
       </visual>
+      <collision>
+        <origin xyz="${g['r']} 0 ${g['h']}"/>
+        <geometry><sphere radius="0.05"/></geometry>
+      </collision>
     </link>
 
     <!-- J2: 어깨 -->
@@ -69,6 +79,10 @@
         <geometry><cylinder radius="0.035" length="${g['a2']}"/></geometry>
         <material name="gc_orange"/>
       </visual>
+      <collision>
+        <origin xyz="${g['a2'] / 2} 0 0" rpy="0 ${pi / 2} 0"/>
+        <geometry><cylinder radius="0.035" length="${g['a2']}"/></geometry>
+      </collision>
     </link>
 
     <!-- J3: 팔꿈치 -->
@@ -84,6 +98,9 @@
         <geometry><sphere radius="0.045"/></geometry>
         <material name="gc_blue"/>
       </visual>
+      <collision>
+        <geometry><sphere radius="0.045"/></geometry>
+      </collision>
     </link>
 
     <!-- J4: 전완 축방향 회전 (J3 theta 오프셋 +90° 포함) -->
@@ -100,6 +117,10 @@
         <geometry><cylinder radius="0.03" length="${g['d4']}"/></geometry>
         <material name="gc_orange"/>
       </visual>
+      <collision>
+        <origin xyz="0 0 ${g['d4'] / 2}"/>
+        <geometry><cylinder radius="0.03" length="${g['d4']}"/></geometry>
+      </collision>
     </link>
 
     <!-- J5: 손목 굽힘 -->
@@ -115,6 +136,9 @@
         <geometry><sphere radius="0.035"/></geometry>
         <material name="gc_blue"/>
       </visual>
+      <collision>
+        <geometry><sphere radius="0.035"/></geometry>
+      </collision>
     </link>
 
     <!-- J6: 플랜지 회전 -->
@@ -131,6 +155,10 @@
         <geometry><cylinder radius="0.03" length="${g['d6']}"/></geometry>
         <material name="gc_dark"/>
       </visual>
+      <collision>
+        <origin xyz="0 0 ${g['d6'] / 2}"/>
+        <geometry><cylinder radius="0.03" length="${g['d6']}"/></geometry>
+      </collision>
     </link>
 
     <!-- 플랜지 (DH 프레임 6) -->

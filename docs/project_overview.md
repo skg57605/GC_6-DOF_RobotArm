@@ -160,7 +160,7 @@ GC_6-DOF_RobotArm/          ← 저장소 루트 = colcon 워크스페이스
    ├─ gc_arm_hardware/      ✅ ros2_control SystemInterface 플러그인 (ArmDriver 래퍼)
    ├─ gc_arm_description/   ✅ DH 기반 URDF/xacro, config/joints.yaml (관절·하드웨어 설정 단일 출처)
    ├─ gc_arm_bringup/       ✅ launch, controllers.yaml
-   └─ gc_arm_moveit_config/ MoveIt 2 설정
+   └─ gc_arm_moveit_config/ ✅ MoveIt 2 설정 (SRDF, KDL, OMPL, 컨트롤러 연동)
 ```
 
 ### 4.3 설계 원칙
@@ -187,5 +187,5 @@ GC_6-DOF_RobotArm/          ← 저장소 루트 = colcon 워크스페이스
 | Phase 1 | 관절 단위 액추에이터(mock/AK/MKS), `ArmDriver`(RX 스레드, 안전 검사), 시뮬레이션 버스, 단위 테스트 39개 | 완료 |
 | Phase 2 | `gc_arm_hardware` 플러그인, 관절별 실제/mock 선택, sim 버스 모드 | 코드 완료, ROS 환경 빌드·실기 확인 대기 |
 | Phase 3 | URDF + 컨트롤러 설정, RViz 관절 구동 | URDF·컨트롤러·launch 작성 완료 (DH 일치 수치 검증), 기구 실측 반영 대기 |
-| Phase 4 | MoveIt 2 설정, 플래닝 및 실기 궤적 실행 | |
+| Phase 4 | MoveIt 2 설정, 플래닝 및 실기 궤적 실행 | 설정 완료(mock 시험 대기), 충돌 형상은 CAD 적용 후 재계산, 바닥 충돌 객체 추가 예정 |
 | Phase 5 | 리밋 스위치 호밍, AK MIT 모드 전환 | |

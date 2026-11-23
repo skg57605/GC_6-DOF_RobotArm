@@ -11,6 +11,7 @@ CubeMars AK45 + MKS SERVO42D/57D를 하나의 CAN 버스로 구동하는 6축 �
 | `gc_arm_hardware` | ros2_control `SystemInterface` 플러그인 (`ArmDriver` 래퍼) | ros2_control |
 | `gc_arm_description` | DH 기반 URDF(xacro), `config/joints.yaml`(관절·하드웨어 설정 단일 출처) | – |
 | `gc_arm_bringup` | `controllers.yaml`, 기동 launch | – |
+| `gc_arm_moveit_config` | SRDF(그룹·자세·충돌 제외), KDL, OMPL, 컨트롤러 연동, MoveIt launch | MoveIt 2 |
 
 ## 빌드
 
@@ -37,6 +38,15 @@ ros2 launch gc_arm_bringup gc_arm.launch.py can_interface:=sim
 # 4) 실제 하드웨어: joints.yaml에서 연결한 관절만 enabled: true → 나머지는 mock
 ros2 launch gc_arm_bringup gc_arm.launch.py
 ```
+
+MoveIt (RViz에서 마커를 끌어 목표 지정 → Plan & Execute):
+```bash
+ros2 launch gc_arm_moveit_config moveit.launch.py mock_all:=true
+```
+- 이름 붙은 자세: `zero`(수평 신전), `upright`(수직, 중력 부하 최소), `ready`(L자, 툴 아래)
+- 기본 속도/가속도 스케일 0.1 — 실기 초기 시험은 이 값 유지
+- ⚠️ 바닥/작업대가 모델링되어 있지 않아 MoveIt이 베이스 아래(z < 0)로 경로를 만들 수 있음.
+  실기에서는 RViz 목표를 작업 공간 안에서만 지정할 것 (바닥 충돌 객체 추가 예정)
 
 관절 움직여 보기:
 ```bash

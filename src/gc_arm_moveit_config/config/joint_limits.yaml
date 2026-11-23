@@ -1,0 +1,37 @@
+# MoveIt 궤적 시간 파라미터화용 관절 한계 (URDF 한계를 덮어씀)
+# max_velocity는 joints.yaml의 max_velocity_deg_s와 맞출 것. 가속도는 보수적 초기값.
+# 초기 실기 시험은 낮은 스케일로 시작 (RViz MotionPlanning 패널에서도 조절 가능)
+default_velocity_scaling_factor: 0.1
+default_acceleration_scaling_factor: 0.1
+
+joint_limits:
+  joint1:
+    has_velocity_limits: true
+    max_velocity: 1.0472     # 60 deg/s
+    has_acceleration_limits: true
+    max_acceleration: 1.0
+  joint2:
+    has_velocity_limits: true
+    max_velocity: 1.0472     # 60 deg/s
+    has_acceleration_limits: true
+    max_acceleration: 1.0
+  joint3:
+    has_velocity_limits: true
+    max_velocity: 1.0472     # 60 deg/s
+    has_acceleration_limits: true
+    max_acceleration: 1.0
+  joint4:
+    has_velocity_limits: true
+    max_velocity: 1.5708     # 90 deg/s
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  joint5:
+    has_velocity_limits: true
+    max_velocity: 1.5708     # 90 deg/s
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  joint6:
+    has_velocity_limits: true
+    max_velocity: 2.0944     # 120 deg/s
+    has_acceleration_limits: true
+    max_acceleration: 3.0
