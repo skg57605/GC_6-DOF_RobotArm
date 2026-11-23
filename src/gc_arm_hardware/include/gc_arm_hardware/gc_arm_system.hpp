@@ -16,6 +16,13 @@
 #include "rclcpp/time.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
+// 최신 Jazzy ros2_control은 on_init(HardwareComponentInterfaceParams)를 사용하고
+// on_init(HardwareInfo)는 deprecated. 구버전에는 새 타입이 없으므로 헤더 존재 여부로 선택.
+#if __has_include("hardware_interface/types/hardware_component_interface_params.hpp")
+#include "hardware_interface/types/hardware_component_interface_params.hpp"
+#define GC_ARM_HW_HAS_INTERFACE_PARAMS 1
+#endif
+
 namespace gc_arm_hardware
 {
 
@@ -34,7 +41,12 @@ class GcArmSystem : public hardware_interface::SystemInterface
 public:
   RCLCPP_SHARED_PTR_DEFINITIONS(GcArmSystem)
 
+#ifdef GC_ARM_HW_HAS_INTERFACE_PARAMS
+  hardware_interface::CallbackReturn on_init(
+    const hardware_interface::HardwareComponentInterfaceParams & params) override;
+#else
   hardware_interface::CallbackReturn on_init(const hardware_interface::HardwareInfo & info) override;
+#endif
   hardware_interface::CallbackReturn on_configure(const rclcpp_lifecycle::State & previous_state) override;
   hardware_interface::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & previous_state) override;
   hardware_interface::CallbackReturn on_activate(const rclcpp_lifecycle::State & previous_state) override;
@@ -49,6 +61,8 @@ public:
   hardware_interface::return_type write(const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
+  /// info_ (기반 클래스가 채움)로부터 설정 파싱 — on_init 두 버전 공통
+  hardware_interface::CallbackReturn initFromInfo();
   void copyStates();
 
   gc_arm::ArmDriver driver_;

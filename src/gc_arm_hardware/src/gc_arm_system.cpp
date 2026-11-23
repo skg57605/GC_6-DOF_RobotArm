@@ -24,11 +24,26 @@ const double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 }  // namespace
 
+#ifdef GC_ARM_HW_HAS_INTERFACE_PARAMS
+CallbackReturn GcArmSystem::on_init(const hardware_interface::HardwareComponentInterfaceParams & params)
+{
+  if (hardware_interface::SystemInterface::on_init(params) != CallbackReturn::SUCCESS) {
+    return CallbackReturn::ERROR;
+  }
+  return initFromInfo();
+}
+#else
 CallbackReturn GcArmSystem::on_init(const hardware_interface::HardwareInfo & info)
 {
   if (hardware_interface::SystemInterface::on_init(info) != CallbackReturn::SUCCESS) {
     return CallbackReturn::ERROR;
   }
+  return initFromInfo();
+}
+#endif
+
+CallbackReturn GcArmSystem::initFromInfo()
+{
 
   // ---- 하드웨어 파라미터 ----
   if (auto it = info_.hardware_parameters.find("can_interface"); it != info_.hardware_parameters.end()) {
