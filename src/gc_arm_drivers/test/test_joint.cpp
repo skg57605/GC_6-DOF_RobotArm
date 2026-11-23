@@ -84,6 +84,10 @@ TEST(Conversions, SpeedLimit)
   EXPECT_DOUBLE_EQ(conv::jointSpeedLimit(c, 0.0), 0.2);
   EXPECT_DOUBLE_EQ(conv::jointSpeedLimit(c, -0.4), 0.6);
   EXPECT_DOUBLE_EQ(conv::jointSpeedLimit(c, 5.0), 1.0);
+  // catch-up (gain 2): 속도 0 + 오차 0.1 → 0.2 + 0.2, 큰 오차 → max로 포화
+  EXPECT_DOUBLE_EQ(conv::jointSpeedLimit(c, 0.0, 0.1), 0.4);
+  EXPECT_DOUBLE_EQ(conv::jointSpeedLimit(c, 0.0, -0.1), 0.4);
+  EXPECT_DOUBLE_EQ(conv::jointSpeedLimit(c, 0.0, 5.0), 1.0);
 }
 
 TEST(AkActuator, CommandFrame)
@@ -122,7 +126,9 @@ TEST(AkActuator, FeedbackToJointState)
 
 TEST(MksActuator, CommandAndFeedback)
 {
-  MksActuator a(j4Config());
+  auto cfg = j4Config();
+  cfg.catchup_gain = 0.0;
+  MksActuator a(cfg);
   std::vector<CanFrame> out;
   // 관절 π/2 → 모터 10π rad = 5 rev = 81920 count
   a.commandFrames(kPi / 2, 0.5, out);
@@ -131,6 +137,12 @@ TEST(MksActuator, CommandAndFeedback)
   EXPECT_EQ(bytes::getBeInt24(&out[0].data[4]), 81920);
   // 속도: 0.5 × 1.5 = 0.75 rad/s 관절 → ×20 = 15 rad/s 모터 = 143.2 rpm → 143
   EXPECT_EQ(bytes::getBe16(&out[0].data[1]), 143);
+
+  // 기본 catch-up(2/s): 오차 π/2 → 제한이 max_velocity(1.5 rad/s)로 포화 → 30 rad/s 모터 = 286 rpm
+  MksActuator b(j4Config());
+  out.clear();
+  b.commandFrames(kPi / 2, 0.5, out);
+  EXPECT_EQ(bytes::getBe16(&out[0].data[1]), 286);
 
   CanFrame r;
   r.id = 2;

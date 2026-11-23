@@ -1,0 +1,10 @@
+<library path="gc_arm_hardware">
+  <class name="gc_arm_hardware/GcArmSystem"
+         type="gc_arm_hardware::GcArmSystem"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ros2_control system interface for the GC 6-DOF arm (CubeMars AK servo mode + MKS SERVO42D/57D
+      on one CAN bus, per-joint mock support, simulated bus mode).
+    </description>
+  </class>
+</library>

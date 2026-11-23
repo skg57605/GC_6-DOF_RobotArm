@@ -49,16 +49,19 @@ inline double mksCountsToRad(int64_t counts)
 inline double mksRadToCounts(double rad) {return rad * mks::kCountsPerRev / (2.0 * kPi);}
 inline double radSToRpm(double rad_s) {return rad_s * 60.0 / (2.0 * kPi);}
 
-/// 관절 속도 명령으로부터 모터 속도 제한(관절 기준, 양수 [rad/s]) 계산
-///   limit = clamp(|v_cmd| × margin, max_velocity × min_fraction, max_velocity)
+/// 관절 속도 명령과 위치 오차로부터 모터 속도 제한(관절 기준, 양수 [rad/s]) 계산
+///   limit = clamp(max(|v_cmd| × margin, max_velocity × min_fraction) + catchup_gain × |pos_error|,
+///                 0, max_velocity)
 ///   v_cmd가 NaN이면(속도 명령 없음) max_velocity
-inline double jointSpeedLimit(const JointConfig & c, double v_cmd)
+///   catch-up 항: 추종이 뒤처지거나 속도 0과 함께 먼 목표가 오면 오차에 비례해 제한을 키움
+inline double jointSpeedLimit(const JointConfig & c, double v_cmd, double pos_error = 0.0)
 {
   if (std::isnan(v_cmd)) {
     return c.max_velocity;
   }
   const double floor = c.max_velocity * c.min_velocity_fraction;
-  return std::clamp(std::fabs(v_cmd) * c.velocity_margin, floor, c.max_velocity);
+  const double base = std::max(std::fabs(v_cmd) * c.velocity_margin, floor);
+  return std::min(base + c.catchup_gain * std::fabs(pos_error), c.max_velocity);
 }
 
 inline double clampPosition(const JointConfig & c, double q)

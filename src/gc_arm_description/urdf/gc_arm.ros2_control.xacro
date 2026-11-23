@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- 관절 하나의 하드웨어 설정. enabled=false 또는 mock_all=true → type=mock -->
+  <xacro:macro name="gc_arm_joint_hw" params="name j mock_all prefix">
+    <xacro:property name="real" value="${j['enabled'] and not mock_all}"/>
+    <joint name="${prefix}${name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <state_interface name="current"/>
+      <state_interface name="temperature"/>
+
+      <param name="type">${j['type'] if real else 'mock'}</param>
+      <param name="can_id">${j['can_id']}</param>
+      <param name="ratio">${j['ratio']}</param>
+      <param name="direction">${j['direction']}</param>
+      <param name="offset">${radians(j['offset_deg'])}</param>
+      <param name="min_position">${radians(j['lower_deg'])}</param>
+      <param name="max_position">${radians(j['upper_deg'])}</param>
+      <param name="max_velocity">${radians(j['max_velocity_deg_s'])}</param>
+      <xacro:if value="${j['type'] == 'ak_servo'}">
+        <param name="ak_pole_pairs">${j['ak_pole_pairs']}</param>
+        <param name="ak_internal_ratio">${j['ak_internal_ratio']}</param>
+        <param name="ak_accel">${j['ak_accel']}</param>
+        <param name="ak_torque_constant">${j['ak_torque_constant']}</param>
+      </xacro:if>
+      <xacro:if value="${j['type'] == 'mks'}">
+        <param name="mks_max_rpm">${j['mks_max_rpm']}</param>
+        <param name="mks_acc">${j['mks_acc']}</param>
+      </xacro:if>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="gc_arm_ros2_control" params="cfg mock_all can_interface prefix:=''">
+    <xacro:property name="J" value="${cfg['joints']}"/>
+    <ros2_control name="GcArmSystem" type="system">
+      <hardware>
+        <plugin>gc_arm_hardware/GcArmSystem</plugin>
+        <param name="can_interface">${can_interface if can_interface not in ('', 'auto') else cfg['hardware']['can_interface']}</param>
+        <param name="activate_timeout_ms">${cfg['hardware']['activate_timeout_ms']}</param>
+      </hardware>
+      <xacro:gc_arm_joint_hw name="joint1" j="${J['joint1']}" mock_all="${mock_all}" prefix="${prefix}"/>
+      <xacro:gc_arm_joint_hw name="joint2" j="${J['joint2']}" mock_all="${mock_all}" prefix="${prefix}"/>
+      <xacro:gc_arm_joint_hw name="joint3" j="${J['joint3']}" mock_all="${mock_all}" prefix="${prefix}"/>
+      <xacro:gc_arm_joint_hw name="joint4" j="${J['joint4']}" mock_all="${mock_all}" prefix="${prefix}"/>
+      <xacro:gc_arm_joint_hw name="joint5" j="${J['joint5']}" mock_all="${mock_all}" prefix="${prefix}"/>
+      <xacro:gc_arm_joint_hw name="joint6" j="${J['joint6']}" mock_all="${mock_all}" prefix="${prefix}"/>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>

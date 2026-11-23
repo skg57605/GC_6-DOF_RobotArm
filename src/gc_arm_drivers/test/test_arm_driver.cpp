@@ -122,6 +122,26 @@ TEST(ArmDriver, SpeedLimitIsRespected)
   EXPECT_GT(st[1].position, 0.7);
 }
 
+TEST(ArmDriver, ZeroVelocityCommandStillConverges)
+{
+  // 속도 명령 0 + 먼 목표 (예: 추종 지연) → catch-up 항으로 수렴해야 함
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), partialArm(), &err)) << err;
+  ASSERT_TRUE(d.activate(&err)) << err;
+  std::vector<double> target = {0, 0.4, -0.3, 0.6, 0, 0}, vel(6, 0.0);
+  std::vector<ActuatorState> st;
+  for (int k = 0; k < 150; ++k) {
+    d.read(st, &err);
+    ASSERT_TRUE(d.write(target, vel, &err)) << err;
+    std::this_thread::sleep_for(10ms);
+  }
+  d.read(st, &err);
+  for (size_t i = 0; i < target.size(); ++i) {
+    EXPECT_NEAR(st[i].position, target[i], 3e-3) << "joint" << i + 1;
+  }
+}
+
 TEST(ArmDriver, FeedbackTimeoutIsReported)
 {
   ArmDriver d;

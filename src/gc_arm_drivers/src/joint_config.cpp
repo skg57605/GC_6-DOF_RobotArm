@@ -40,7 +40,7 @@ JointConfig parseJointConfig(const std::string & name, const std::map<std::strin
 {
   static const std::set<std::string> known = {
     "type", "can_id", "ratio", "direction", "offset", "min_position", "max_position",
-    "max_velocity", "velocity_margin", "min_velocity_fraction", "ak_pole_pairs",
+    "max_velocity", "velocity_margin", "min_velocity_fraction", "catchup_gain", "ak_pole_pairs",
     "ak_internal_ratio", "ak_accel", "ak_torque_constant", "mks_max_rpm", "mks_acc",
     "velocity_filter", "feedback_timeout", "max_temperature"};
 
@@ -78,6 +78,7 @@ JointConfig parseJointConfig(const std::string & name, const std::map<std::strin
   num("max_velocity", c.max_velocity);
   num("velocity_margin", c.velocity_margin);
   num("min_velocity_fraction", c.min_velocity_fraction);
+  num("catchup_gain", c.catchup_gain);
   num("ak_pole_pairs", c.ak_pole_pairs);
   num("ak_internal_ratio", c.ak_internal_ratio);
   num("ak_accel", c.ak_accel_erpm_s2);
@@ -99,6 +100,7 @@ JointConfig parseJointConfig(const std::string & name, const std::map<std::strin
   if (!(c.max_velocity > 0)) {fail("max_velocity > 0 이어야 함");}
   if (!(c.velocity_margin >= 1.0)) {fail("velocity_margin ≥ 1");}
   if (c.min_velocity_fraction < 0 || c.min_velocity_fraction > 1) {fail("min_velocity_fraction 0~1");}
+  if (c.catchup_gain < 0) {fail("catchup_gain ≥ 0");}
   if (!(c.ak_pole_pairs > 0) || !(c.ak_internal_ratio > 0)) {fail("ak_pole_pairs, ak_internal_ratio > 0");}
   if (mks_max_rpm < 1 || mks_max_rpm > 3000) {fail("mks_max_rpm 1~3000");}
   if (mks_acc < 0 || mks_acc > 255) {fail("mks_acc 0~255");}

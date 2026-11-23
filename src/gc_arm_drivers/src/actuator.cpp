@@ -37,7 +37,7 @@ void AkServoActuator::commandFrames(double position, double velocity, std::vecto
 {
   const double q = conv::clampPosition(config_, position);
   const double act_deg = conv::rad2deg(conv::jointToActuator(config_, q));
-  const double speed_joint = conv::jointSpeedLimit(config_, velocity);
+  const double speed_joint = conv::jointSpeedLimit(config_, velocity, q - state().position);
   const double speed_erpm = conv::akRadSToErpm(config_, speed_joint * config_.ratio);
   out.push_back(ak::servo::makePositionSpeed(
       static_cast<uint8_t>(config_.can_id), act_deg, speed_erpm, config_.ak_accel_erpm_s2));
@@ -76,7 +76,8 @@ void MksActuator::commandFrames(double position, double velocity, std::vector<Ca
 {
   const double q = conv::clampPosition(config_, position);
   const double counts = conv::mksRadToCounts(conv::jointToActuator(config_, q));
-  const double rpm = conv::radSToRpm(conv::jointSpeedLimit(config_, velocity) * config_.ratio);
+  const double speed_joint = conv::jointSpeedLimit(config_, velocity, q - state().position);
+  const double rpm = conv::radSToRpm(speed_joint * config_.ratio);
   const uint16_t rpm_cmd = static_cast<uint16_t>(
     std::clamp(std::lround(rpm), 1L, static_cast<long>(config_.mks_max_rpm)));
   out.push_back(mks::makePosAbsAxis(

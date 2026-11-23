@@ -86,6 +86,9 @@ candump -tz can0
 | J6 | 플랜지 축방향 회전 | 0 | 0 | 59 | q6 |
 
 - 구조: 상완 245 mm, 전완 245 mm, 구형 손목(J4~J6 축 교차), 플랜지 59 mm
+- URDF(`gc_arm_description`)는 이 표에서 생성되며, 무작위 자세 200개에서 DH 순기구학과 1e-15 수준으로 일치함을 확인
+- **영점 자세(q = 0)**: 팔이 +x 방향으로 수평으로 완전히 펴진 자세 (플랜지 위치 x = r + 549 mm, z = h).
+  실제 기구의 영점 정의와 일치하는지 확인 필요 (중력 부하가 가장 큰 자세이기도 함)
 - TODO
   - [ ] r, h 실측값 확정
   - [ ] 각 관절 회전 방향(+)과 모터 방향 일치 여부 확인
@@ -154,9 +157,9 @@ candump -tz can0
 GC_6-DOF_RobotArm/          ← 저장소 루트 = colcon 워크스페이스
 └─ src/
    ├─ gc_arm_drivers/       ✅ SocketCAN + AK(Servo/MIT) + MKS 프로토콜, gc_motor_cli (Phase 0)
-   ├─ gc_arm_hardware/      ros2_control SystemInterface 플러그인 (gc_arm_drivers 사용)
-   ├─ gc_arm_description/   URDF/xacro, 메시, ros2_control xacro
-   ├─ gc_arm_bringup/       launch, controllers.yaml
+   ├─ gc_arm_hardware/      ✅ ros2_control SystemInterface 플러그인 (ArmDriver 래퍼)
+   ├─ gc_arm_description/   ✅ DH 기반 URDF/xacro, config/joints.yaml (관절·하드웨어 설정 단일 출처)
+   ├─ gc_arm_bringup/       ✅ launch, controllers.yaml
    └─ gc_arm_moveit_config/ MoveIt 2 설정
 ```
 
@@ -181,8 +184,8 @@ GC_6-DOF_RobotArm/          ← 저장소 루트 = colcon 워크스페이스
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | Phase 0 | `gc_arm_drivers` + `gc_motor_cli`: 모터별 구동/조회, 혼합 버스 시험, MKS 추종 방식 비교 | 코드 완료, 실기 시험 대기 |
-| Phase 1 | 드라이버 라이브러리 정리 + 프레임 인코딩/디코딩 단위 테스트 | |
-| Phase 2 | ros2_control 하드웨어 인터페이스 (mock → 실기) | |
-| Phase 3 | URDF + 컨트롤러 설정, RViz 관절 구동 | |
+| Phase 1 | 관절 단위 액추에이터(mock/AK/MKS), `ArmDriver`(RX 스레드, 안전 검사), 시뮬레이션 버스, 단위 테스트 39개 | 완료 |
+| Phase 2 | `gc_arm_hardware` 플러그인, 관절별 실제/mock 선택, sim 버스 모드 | 코드 완료, ROS 환경 빌드·실기 확인 대기 |
+| Phase 3 | URDF + 컨트롤러 설정, RViz 관절 구동 | URDF·컨트롤러·launch 작성 완료 (DH 일치 수치 검증), 기구 실측 반영 대기 |
 | Phase 4 | MoveIt 2 설정, 플래닝 및 실기 궤적 실행 | |
 | Phase 5 | 리밋 스위치 호밍, AK MIT 모드 전환 | |

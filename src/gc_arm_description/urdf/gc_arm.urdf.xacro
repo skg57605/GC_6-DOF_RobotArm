@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<robot name="gc_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- joints_config: 관절/하드웨어 설정 YAML 경로 -->
+  <xacro:arg name="joints_config" default="$(find gc_arm_description)/config/joints.yaml"/>
+  <!-- mock_all: true면 YAML의 enabled와 관계없이 전 관절 mock -->
+  <xacro:arg name="mock_all" default="false"/>
+  <!-- can_interface: 'auto'(또는 빈 값)면 YAML 값 사용, 'sim'이면 시뮬레이션 버스 -->
+  <xacro:arg name="can_interface" default="auto"/>
+  <xacro:arg name="use_ros2_control" default="true"/>
+
+  <xacro:property name="cfg" value="${xacro.load_yaml('$(arg joints_config)')}"/>
+
+  <xacro:include filename="gc_arm.macro.xacro"/>
+  <xacro:include filename="gc_arm.ros2_control.xacro"/>
+
+  <xacro:gc_arm cfg="${cfg}"/>
+
+  <xacro:if value="$(arg use_ros2_control)">
+    <xacro:gc_arm_ros2_control cfg="${cfg}"
+                               mock_all="${'$(arg mock_all)'.lower() == 'true'}"
+                               can_interface="$(arg can_interface)"/>
+  </xacro:if>
+
+</robot>

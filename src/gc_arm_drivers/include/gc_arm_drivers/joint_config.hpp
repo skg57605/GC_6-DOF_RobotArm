@@ -33,6 +33,7 @@ struct JointConfig
   double max_velocity{1.0};      ///< [rad/s] 관절 속도 상한 (모터 속도 제한 계산)
   double velocity_margin{1.5};   ///< 속도 명령 대비 모터 속도 제한 배율
   double min_velocity_fraction{0.2};  ///< 속도 제한 하한 = max_velocity × 이 값
+  double catchup_gain{2.0};      ///< [1/s] 위치 오차 비례 속도 제한 증가분
 
   // CubeMars AK
   double ak_pole_pairs{14.0};       ///< 극쌍수 (상위 프로그램/데이터시트로 확인)
@@ -53,7 +54,7 @@ struct JointConfig
 /// 문자열 파라미터 맵(URDF <param>)에서 설정 생성. 잘못된 값이면 std::invalid_argument
 ///
 /// 키: type(mock|ak_servo|mks), can_id, ratio, direction, offset, min_position, max_position,
-///     max_velocity, velocity_margin, min_velocity_fraction,
+///     max_velocity, velocity_margin, min_velocity_fraction, catchup_gain,
 ///     ak_pole_pairs, ak_internal_ratio, ak_accel, ak_torque_constant,
 ///     mks_max_rpm, mks_acc, velocity_filter, feedback_timeout, max_temperature
 JointConfig parseJointConfig(const std::string & name, const std::map<std::string, std::string> & params);

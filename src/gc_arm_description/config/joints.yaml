@@ -1,0 +1,112 @@
+# GC 6축 로봇팔 관절/하드웨어 설정 — URDF(xacro)와 ros2_control 하드웨어 파라미터의 단일 출처
+#
+# enabled: true  → 실제 모터 구동 (type에 따라 ak_servo | mks)
+# enabled: false → mock (하드웨어 없이 명령을 그대로 상태로 반영)
+# ⚠️ 기본값은 전부 false(안전). 실제로 버스에 연결한 관절만 true로 바꿀 것.
+#
+# 관절 좌표 정의: q_joint = direction × θ_actuator / ratio + offset
+#   θ_actuator: AK = 액추에이터 출력축 각도, MKS = 모터축 각도
+#
+# TODO(실측/확인): geometry.r, geometry.h, 각 관절 direction/offset/가동범위, AK 극쌍수
+
+hardware:
+  can_interface: can0          # 'sim' = 시뮬레이션 버스 (실제 프로토콜 경로를 하드웨어 없이 시험)
+  activate_timeout_ms: 1000
+
+geometry:                      # Standard DH [m]
+  r: 0.0                       # a1 (TODO 실측)
+  h: 0.10                      # d1 (TODO 실측)
+  a2: 0.245
+  d4: 0.245
+  d6: 0.059
+
+joints:
+  joint1:                      # 베이스 회전 — SERVO57D 직결
+    enabled: false
+    type: mks
+    can_id: 1
+    ratio: 1.0
+    direction: 1
+    offset_deg: 0.0
+    lower_deg: -170.0
+    upper_deg: 170.0
+    max_velocity_deg_s: 60.0
+    effort_nm: 2.0
+    mks_max_rpm: 600
+    mks_acc: 0
+
+  joint2:                      # 어깨 — AK45-36 + 외부 4:1
+    enabled: false
+    type: ak_servo
+    can_id: 101
+    ratio: 4.0
+    direction: 1
+    offset_deg: 0.0
+    lower_deg: -120.0
+    upper_deg: 120.0
+    max_velocity_deg_s: 60.0
+    effort_nm: 40.0
+    ak_pole_pairs: 14          # TODO 상위 프로그램/데이터시트로 확인
+    ak_internal_ratio: 36
+    ak_accel: 30000            # ERPM/s
+    ak_torque_constant: 0.0    # 출력축 Nm/A, 0 = 미설정
+
+  joint3:                      # 팔꿈치 — AK45-36 + 외부 2:1
+    enabled: false
+    type: ak_servo
+    can_id: 102
+    ratio: 2.0
+    direction: 1
+    offset_deg: 0.0
+    lower_deg: -135.0
+    upper_deg: 135.0
+    max_velocity_deg_s: 60.0
+    effort_nm: 20.0
+    ak_pole_pairs: 14
+    ak_internal_ratio: 36
+    ak_accel: 30000
+    ak_torque_constant: 0.0
+
+  joint4:                      # 전완 회전 — SERVO42D + 20:1 (자체 제작)
+    enabled: false
+    type: mks
+    can_id: 2
+    ratio: 20.0
+    direction: 1
+    offset_deg: 0.0
+    lower_deg: -180.0
+    upper_deg: 180.0
+    max_velocity_deg_s: 90.0   # 모터 300 rpm
+    effort_nm: 5.0
+    mks_max_rpm: 600
+    mks_acc: 0
+
+  joint5:                      # 손목 굽힘 — AK45-10 + 외부 18/7
+    enabled: false
+    type: ak_servo
+    can_id: 103
+    ratio: 2.5714285714285716  # 18/7
+    direction: 1
+    offset_deg: 0.0
+    lower_deg: -120.0
+    upper_deg: 120.0
+    max_velocity_deg_s: 90.0
+    effort_nm: 5.0
+    ak_pole_pairs: 14          # TODO 확인
+    ak_internal_ratio: 10
+    ak_accel: 30000
+    ak_torque_constant: 0.0
+
+  joint6:                      # 플랜지 회전 — SERVO42D 직결
+    enabled: false
+    type: mks
+    can_id: 3
+    ratio: 1.0
+    direction: 1
+    offset_deg: 0.0
+    lower_deg: -180.0
+    upper_deg: 180.0
+    max_velocity_deg_s: 120.0
+    effort_nm: 0.4
+    mks_max_rpm: 600
+    mks_acc: 0
