@@ -82,7 +82,8 @@ python3 src/gc_arm_description/scripts/compute_collision_matrix.py /tmp/gc_arm.u
   - 동작 중에는 피드백을 연속값으로 이어 붙인다 (360° 경계 통과 대응).
   - 활성화 시 `joints.yaml`의 `startup_reference_deg`(전원 투입 시 자세)에 가장 가까운 회전수를 선택한다.
   - 관절 범위가 모터 한 바퀴를 넘는 AK 관절은 이 값이 없으면 기동을 거부한다.
-  - **전원은 항상 기준 자세 근처(J2 ±45°, J3 ±90°, J5 ±70°)에서 켤 것**
+  - **시작/종료 자세 = `ready`** [0, 90, -90, 0, -90, 0]°: 종료 전 MoveIt으로 ready 이동 → 전원 차단.
+    전원 투입 시 실제 자세가 ready에서 J2 ±45°, J3 ±90°, J5 ±70° 이내여야 함
 - 피드백 타임아웃(기본 100 ms), AK 드라이버 에러 코드, AK 과열(기본 80 °C), CAN BUS-OFF → `read()` 오류
   → controller_manager가 컨트롤러를 정지
 - 명령 위치는 `joints.yaml`의 가동범위로 클램프, 모터 속도는 `max_velocity_deg_s` 이내로 제한
