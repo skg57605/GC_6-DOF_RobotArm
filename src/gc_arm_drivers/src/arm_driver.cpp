@@ -122,6 +122,7 @@ bool ArmDriver::sendAll(const std::vector<CanFrame> & frames, std::string * erro
 
 bool ArmDriver::activate(std::string * error)
 {
+  stopHold();
   if (!anyBusJoint()) {
     active_ = true;
     return true;
@@ -168,18 +169,51 @@ bool ArmDriver::activate(std::string * error)
 
 void ArmDriver::deactivate()
 {
-  // 모터는 마지막 목표 위치를 유지한다 (AK 토크 해제 시 중력에 의해 팔이 떨어지므로 해제하지 않음)
   if (bus_ && active_) {
     scratch_.clear();
     for (auto & a : actuators_) {a->deactivateFrames(scratch_);}
     sendAll(scratch_, nullptr);
+    active_ = false;
+    startHold();  // 제어하던 관절만 계속 유지 (한 번도 활성화하지 않은 모터는 건드리지 않음)
+    return;
   }
   active_ = false;
 }
 
+void ArmDriver::startHold()
+{
+  if (!bus_ || holding_) {
+    return;
+  }
+  holding_ = true;
+  hold_thread_ = std::thread(&ArmDriver::holdLoop, this);
+}
+
+void ArmDriver::stopHold()
+{
+  holding_ = false;
+  if (hold_thread_.joinable()) {
+    hold_thread_.join();
+  }
+}
+
+void ArmDriver::holdLoop()
+{
+  std::vector<CanFrame> frames;
+  auto next = SteadyClock::now();
+  while (holding_) {
+    frames.clear();
+    for (auto & a : actuators_) {a->holdFrames(frames);}
+    for (const auto & f : frames) {bus_->send(f);}
+    next += hold_period_;
+    std::this_thread::sleep_until(next);
+  }
+}
+
 void ArmDriver::cleanup()
 {
-  deactivate();
+  stopHold();
+  active_ = false;
   running_ = false;
   if (rx_thread_.joinable()) {
     rx_thread_.join();
@@ -241,6 +275,9 @@ bool ArmDriver::write(
   for (size_t i = 0; i < actuators_.size(); ++i) {
     if (std::isnan(positions[i])) {
       continue;  // 아직 명령 없음 → 송신하지 않음 (모터는 현재 목표 유지)
+    }
+    if (!active_ && actuators_[i]->usesBus()) {
+      continue;  // 비활성: 유지 스레드가 마지막 목표를 송신 중 → 목표 변경 금지
     }
     actuators_[i]->commandFrames(positions[i], velocities[i], scratch_);
   }

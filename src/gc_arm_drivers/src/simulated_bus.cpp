@@ -67,6 +67,13 @@ void SimulatedBus::setAkPosition(uint8_t id, double deg)
   ak_[id].pos_deg = ak_[id].target_deg = deg;
 }
 
+bool SimulatedBus::akReleased(uint8_t id) const
+{
+  std::lock_guard<std::mutex> lk(mutex_);
+  auto it = ak_.find(id);
+  return it != ak_.end() && it->second.released;
+}
+
 double SimulatedBus::akPositionDeg(uint8_t id) const
 {
   std::lock_guard<std::mutex> lk(mutex_);
@@ -100,6 +107,12 @@ void SimulatedBus::step(Clock::time_point now)
   last_step_ = now;
 
   for (auto & [id, a] : ak_) {
+    if (a.engaged && std::chrono::duration<double>(now - a.last_cmd).count() > ak_timeout_s) {
+      a.engaged = false;  // 명령 timeout → 토크 해제 (실기 확인 동작)
+      a.released = true;
+      a.position_mode = false;
+      a.vel_deg_s = 0;
+    }
     if (a.position_mode) {
       a.vel_deg_s = moveToward(a.pos_deg, a.target_deg, a.vmax_deg_s, dt);
     } else {
@@ -162,6 +175,9 @@ void SimulatedBus::handle(const CanFrame & f)
     if (it == ak_.end()) {return;}
     Ak & a = it->second;
     const uint8_t * d = f.data.data();
+    a.last_cmd = Clock::now();
+    a.engaged = true;
+    a.released = false;
     switch (static_cast<ak::servo::PacketId>(packet)) {
       case ak::servo::PacketId::SetPos:
         a.position_mode = true;

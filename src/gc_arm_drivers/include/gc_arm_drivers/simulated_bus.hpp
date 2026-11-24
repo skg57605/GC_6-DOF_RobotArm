@@ -37,6 +37,9 @@ public:
   double akPositionDeg(uint8_t id) const;
   int64_t mksCounts(uint16_t id) const;
   bool mksEnabled(uint16_t id) const;
+  /// AK가 명령 timeout으로 토크를 해제했는지 (실기: 명령 1 s 끊기면 해제)
+  bool akReleased(uint8_t id) const;
+  double ak_timeout_s{1.0};
   size_t sentFrames() const;
 
   double feedback_rate_hz{200.0};
@@ -54,6 +57,8 @@ private:
     double current{0};
     uint8_t error{0};
     Clock::time_point next_fb{};
+    Clock::time_point last_cmd{};
+    bool engaged{false}, released{false};
   };
   struct Mks
   {

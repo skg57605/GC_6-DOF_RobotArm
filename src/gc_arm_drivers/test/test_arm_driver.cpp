@@ -276,3 +276,79 @@ TEST(AkTurns, WithoutReferenceUsesRawAngle)
   d.read(st, &err);
   EXPECT_NEAR(st[0].position, 10.0 * M_PI / 180.0, 2e-3);  // 40° / 4
 }
+
+// ---- AK 명령 timeout(1 s) 시 토크 해제 대응: 비활성화 후 위치 유지 송신 ----
+
+TEST(AkHold, DeactivateKeepsMotorEngaged)
+{
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), partialArm(), &err)) << err;
+  ASSERT_TRUE(d.activate(&err)) << err;
+  runLoop(d, {0, 0.3, -0.2, 0.5, 0, 0}, 800ms);
+  const double before = d.simulatedBus()->akPositionDeg(101);
+  d.deactivate();
+  EXPECT_TRUE(d.holding());
+  std::this_thread::sleep_for(1500ms);  // timeout(1 s)보다 길게
+  EXPECT_FALSE(d.simulatedBus()->akReleased(101));
+  EXPECT_FALSE(d.simulatedBus()->akReleased(102));
+  EXPECT_NEAR(d.simulatedBus()->akPositionDeg(101), before, 0.2);
+}
+
+TEST(AkHold, WriteWhileInactiveDoesNotChangeHoldTarget)
+{
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), partialArm(), &err)) << err;
+  ASSERT_TRUE(d.activate(&err)) << err;
+  runLoop(d, {0, 0.3, 0, 0, 0, 0}, 800ms);
+  const double before = d.simulatedBus()->akPositionDeg(101);
+  d.deactivate();
+  std::vector<double> pos = {0, 1.0, 0, 0, 0, 0}, vel(6, std::nan(""));
+  for (int i = 0; i < 30; ++i) {
+    ASSERT_TRUE(d.write(pos, vel, &err));
+    std::this_thread::sleep_for(10ms);
+  }
+  EXPECT_NEAR(d.simulatedBus()->akPositionDeg(101), before, 0.2);
+}
+
+TEST(AkHold, ReactivateStopsHoldAndResumesControl)
+{
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), partialArm(), &err)) << err;
+  ASSERT_TRUE(d.activate(&err)) << err;
+  runLoop(d, {0, 0.3, 0, 0, 0, 0}, 800ms);
+  d.deactivate();
+  std::this_thread::sleep_for(200ms);
+  ASSERT_TRUE(d.activate(&err)) << err;
+  EXPECT_FALSE(d.holding());
+  runLoop(d, {0, 0.6, 0, 0, 0, 0}, 1000ms);
+  std::vector<ActuatorState> st;
+  ASSERT_TRUE(d.read(st, &err)) << err;
+  EXPECT_NEAR(st[1].position, 0.6, 3e-3);
+}
+
+TEST(AkHold, NeverActivatedMotorIsNotEngaged)
+{
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), partialArm(), &err)) << err;
+  d.deactivate();  // 활성화한 적 없음 → 유지 송신 없음
+  EXPECT_FALSE(d.holding());
+  const size_t sent = d.simulatedBus()->sentFrames();
+  std::this_thread::sleep_for(200ms);
+  EXPECT_EQ(d.simulatedBus()->sentFrames(), sent);
+}
+
+TEST(AkHold, SimulatorReleasesWithoutCommands)
+{
+  // 시뮬레이터 자체 검증: 명령이 끊기면 timeout 후 해제 (실기 동작 재현)
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), partialArm(), &err)) << err;
+  ASSERT_TRUE(d.activate(&err)) << err;
+  runLoop(d, {0, 0.1, 0, 0, 0, 0}, 300ms);
+  std::this_thread::sleep_for(1300ms);  // write 없음, deactivate 없음
+  EXPECT_TRUE(d.simulatedBus()->akReleased(101));
+}

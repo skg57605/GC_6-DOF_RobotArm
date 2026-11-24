@@ -216,12 +216,13 @@ CallbackReturn GcArmSystem::on_activate(const rclcpp_lifecycle::State &)
 CallbackReturn GcArmSystem::on_deactivate(const rclcpp_lifecycle::State &)
 {
   driver_.deactivate();
-  RCLCPP_INFO(logger_, "deactivate (모터는 마지막 목표 위치 유지)");
+  RCLCPP_INFO(logger_, "deactivate: 마지막 목표 위치 유지 명령을 계속 송신 (cleanup/종료 시 중단)");
   return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn GcArmSystem::on_cleanup(const rclcpp_lifecycle::State &)
 {
+  RCLCPP_WARN(logger_, "cleanup: 위치 유지 송신 중단 → AK는 약 1 s 뒤 토크 해제");
   driver_.cleanup();
   return CallbackReturn::SUCCESS;
 }
@@ -234,8 +235,9 @@ CallbackReturn GcArmSystem::on_shutdown(const rclcpp_lifecycle::State &)
 
 CallbackReturn GcArmSystem::on_error(const rclcpp_lifecycle::State &)
 {
-  RCLCPP_ERROR(logger_, "하드웨어 오류 → 드라이버 정리");
-  driver_.cleanup();
+  // AK는 명령이 1 s 끊기면 토크 해제 → 정리하지 않고 마지막 목표 유지 (중력 관절 처짐 방지)
+  driver_.deactivate();
+  RCLCPP_ERROR(logger_, "하드웨어 오류 → 마지막 목표 위치 유지 송신 중 (원인 해결 후 재구성, 종료 시 토크 해제 주의)");
   return CallbackReturn::SUCCESS;
 }
 

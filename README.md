@@ -87,5 +87,8 @@ python3 src/gc_arm_description/scripts/compute_collision_matrix.py /tmp/gc_arm.u
 - 피드백 타임아웃(기본 100 ms), AK 드라이버 에러 코드, AK 과열(기본 80 °C), CAN BUS-OFF → `read()` 오류
   → controller_manager가 컨트롤러를 정지
 - 명령 위치는 `joints.yaml`의 가동범위로 클램프, 모터 속도는 `max_velocity_deg_s` 이내로 제한
-- 비활성화/오류 시 AK 토크를 해제하지 않음 (중력에 의한 낙하 방지) — 모터는 마지막 목표 위치 유지
+- **AK는 명령이 1 s 끊기면 토크를 해제한다(실기 확인)** → 컨트롤러 정지·비활성화·하드웨어 오류 시
+  별도 스레드가 마지막 목표 위치를 20 Hz로 계속 송신해 팔이 처지지 않게 한다.
+  - ⚠️ 프로세스 종료(Ctrl+C), PC 정지, cleanup 시에는 송신이 끊겨 **약 1 s 뒤 AK 토크 해제** → 중력 관절(J2/J3)이 처질 수 있음
+  - 종료 전 반드시 안정 자세(시작/종료 자세)로 이동할 것. 모터 Timeout 설정 변경(비활성화) 여부 검토 중
 - **소프트웨어 안전 기능은 하드웨어 E-stop을 대체하지 않는다**

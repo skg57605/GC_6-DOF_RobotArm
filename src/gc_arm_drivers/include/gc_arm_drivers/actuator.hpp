@@ -47,6 +47,9 @@ public:
   virtual std::string resolveStartup() {return {};}
   /// 비활성화 시 보낼 프레임
   virtual void deactivateFrames(std::vector<CanFrame> & /*out*/) {}
+  /// 비활성/오류 상태에서 주기적으로 보낼 위치 유지 프레임
+  /// (AK는 명령이 timeout(1 s) 동안 끊기면 토크를 해제하므로 필요)
+  virtual void holdFrames(std::vector<CanFrame> & /*out*/) {}
   /// 매 주기 상태 조회 요청 (예: MKS 0x31)
   virtual void pollFrames(std::vector<CanFrame> & /*out*/) {}
   /// 매 주기 명령. position [rad], velocity [rad/s] (NaN = 속도 명령 없음)
@@ -92,6 +95,8 @@ public:
   void commandFrames(double position, double velocity, std::vector<CanFrame> & out) override;
   bool handleFrame(const CanFrame & frame, SteadyClock::time_point now) override;
   std::string resolveStartup() override;
+  /// 마지막으로 보낸 명령을 다시 보냄 (명령이 없었으면 현재 위치 유지 명령)
+  void holdFrames(std::vector<CanFrame> & out) override;
 
   /// 시험/로그용: 모터 기준 연속 각도 [deg], 선택된 회전 보정 [deg]
   double motorAngleDeg() const;
@@ -102,6 +107,7 @@ private:
   double last_raw_deg_{0.0};
   double unwrapped_deg_{0.0};   // 모터 기준 연속 각도
   double turn_offset_deg_{0.0}; // 360° 배수
+  std::optional<CanFrame> last_command_;
 };
 
 /// MKS SERVO42D/57D. 명령 = 0xF5 절대위치(축 좌표), 상태 = 0x31 폴링 + 위치 미분 속도

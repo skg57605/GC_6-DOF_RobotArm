@@ -48,8 +48,26 @@ void AkServoActuator::commandFrames(double position, double velocity, std::vecto
   const double act_deg = conv::rad2deg(conv::jointToActuator(config_, q)) - turn_offset;
   const double speed_joint = conv::jointSpeedLimit(config_, velocity, q - measured);
   const double speed_erpm = conv::akRadSToErpm(config_, speed_joint * config_.ratio);
+  const CanFrame f = ak::servo::makePositionSpeed(
+    static_cast<uint8_t>(config_.can_id), act_deg, speed_erpm, config_.ak_accel_erpm_s2);
+  out.push_back(f);
+  std::lock_guard<std::mutex> lk(mutex_);
+  last_command_ = f;
+}
+
+void AkServoActuator::holdFrames(std::vector<CanFrame> & out)
+{
+  std::lock_guard<std::mutex> lk(mutex_);
+  if (last_command_) {
+    out.push_back(*last_command_);
+    return;
+  }
+  if (!have_raw_) {
+    return;
+  }
+  const double speed_erpm = conv::akRadSToErpm(config_, conv::jointSpeedLimit(config_, 0.0) * config_.ratio);
   out.push_back(ak::servo::makePositionSpeed(
-      static_cast<uint8_t>(config_.can_id), act_deg, speed_erpm, config_.ak_accel_erpm_s2));
+      static_cast<uint8_t>(config_.can_id), unwrapped_deg_, speed_erpm, config_.ak_accel_erpm_s2));
 }
 
 bool AkServoActuator::handleFrame(const CanFrame & frame, SteadyClock::time_point now)

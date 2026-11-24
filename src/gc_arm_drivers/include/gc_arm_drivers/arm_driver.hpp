@@ -42,8 +42,12 @@ public:
 
   bool configure(const Options & options, const std::vector<JointConfig> & joints, std::string * error);
   bool activate(std::string * error);
+  /// 명령 루프 종료. 활성 상태였다면 위치 유지 스레드를 시작해 마지막 목표를 계속 송신한다
+  /// (AK는 명령이 1 s 끊기면 토크 해제 → 중력 관절 처짐 방지). cleanup() 전까지 유지.
   void deactivate();
+  /// 위치 유지 중단 + 버스 해제. AK는 이후 timeout 뒤 토크 해제됨
   void cleanup();
+  bool holding() const {return holding_.load();}
 
   size_t size() const {return actuators_.size();}
   const JointConfig & jointConfig(size_t i) const {return actuators_[i]->config();}
@@ -67,6 +71,9 @@ public:
 
 private:
   void rxLoop();
+  void holdLoop();
+  void startHold();
+  void stopHold();
   bool sendAll(const std::vector<CanFrame> & frames, std::string * error);
   bool anyBusJoint() const;
 
@@ -74,12 +81,15 @@ private:
   std::unique_ptr<CanBus> bus_;
   SimulatedBus * sim_bus_{nullptr};
   std::thread rx_thread_;
+  std::thread hold_thread_;
+  std::atomic<bool> holding_{false};
   std::atomic<bool> running_{false};
   std::atomic<bool> bus_off_{false};
   std::atomic<size_t> error_frames_{0};
   std::atomic<size_t> unknown_frames_{0};
   bool active_{false};
   std::chrono::milliseconds activate_timeout_{1000};
+  std::chrono::milliseconds hold_period_{50};
   std::vector<CanFrame> scratch_;
   std::vector<std::string> startup_log_;
 };
