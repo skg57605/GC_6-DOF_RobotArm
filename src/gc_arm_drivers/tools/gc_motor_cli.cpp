@@ -292,7 +292,8 @@ int akMove(SocketCan & bus, uint8_t id, const Args & a)
   if (a.pos.size() < 4) {
     std::fprintf(stderr,
       "사용법: ak <id> move <목표deg> [--spd 3000] [--acc 10000] [--rate 100] [--tol 0.5] [--timeout_s 15]\n"
-      "                    [--hold 초] [--observe 초]\n"
+      "                    [--max_current 2.5] [--hold 초] [--observe 초]\n"
+      "  보호: 피드백 0.3 s 끊김 또는 |전류| > max_current 이면 즉시 송신 중단\n"
       "  --hold    : 도달 후 목표를 계속 송신하며 유지하는 시간\n"
       "  --observe : 이후 송신을 멈추고 위치·전류 관찰 (모터 timeout 동작 확인용)\n");
     return 1;
@@ -305,6 +306,8 @@ int akMove(SocketCan & bus, uint8_t id, const Args & a)
   const double timeout_s = a.num("timeout_s", 15);
   const double hold_s = a.num("hold", 0);
   const double observe_s = a.num("observe", 0);
+  const double max_current = a.num("max_current", 2.5);
+  constexpr double kFeedbackLossS = 0.3;
 
   auto fb0 = waitAkFeedback(bus, id, milliseconds(1000));
   if (!fb0) {
@@ -316,17 +319,42 @@ int akMove(SocketCan & bus, uint8_t id, const Args & a)
 
   const auto dt = std::chrono::duration_cast<Clock::duration>(duration<double>(1.0 / rate));
   std::optional<ak::servo::Feedback> last = fb0;
+  auto last_rx = Clock::now();
+  std::string abort_reason;
+  // send=true 구간에서 보호 조건 위반 시 abort_reason 설정 후 false 반환
   auto pump = [&](Clock::time_point until, bool send) {
       auto next = Clock::now();
       while (!g_stop && Clock::now() < until) {
-        if (send) {sendFrame(bus, ak::servo::makePositionSpeed(id, target, spd, acc));}
+        if (send) {
+          if (secondsSince(last_rx) > kFeedbackLossS) {
+            abort_reason = "피드백 끊김 (" + std::to_string(static_cast<int>(secondsSince(last_rx) * 1000)) + " ms)";
+            return false;
+          }
+          if (std::fabs(last->current_a) > max_current) {
+            char b[96];
+            std::snprintf(b, sizeof(b), "전류 %.2f A > 제한 %.2f A (걸림/기구 한계 의심)", last->current_a, max_current);
+            abort_reason = b;
+            return false;
+          }
+          if (last->error != 0) {
+            abort_reason = std::string("드라이버 에러 ") + ak::servo::errorString(last->error);
+            return false;
+          }
+          sendFrame(bus, ak::servo::makePositionSpeed(id, target, spd, acc));
+        }
         next += dt;
         receiveUntil(bus, next, [&](const CanFrame & f) {
             auto fb = ak::servo::parseFeedback(f);
-            if (fb && fb->driver_id == id) {last = fb;}
+            if (fb && fb->driver_id == id) {last = fb; last_rx = Clock::now();}
             return false;
           });
       }
+      return true;
+    };
+  auto aborted = [&]() {
+      std::fprintf(stderr, "⛔ 중단: %s — 송신 멈춤 (모터는 timeout 후 동작). 마지막 pos=%.1f deg\n",
+        abort_reason.c_str(), last->position_deg);
+      return 3;
     };
 
   // 1) 이동
@@ -334,7 +362,7 @@ int akMove(SocketCan & bus, uint8_t id, const Args & a)
   double next_print = 0.0;
   bool reached = false;
   while (!g_stop && secondsSince(t0) < timeout_s) {
-    pump(Clock::now() + dt, true);
+    if (!pump(Clock::now() + dt, true)) {return aborted();}
     const double t = secondsSince(t0);
     if (t >= next_print) {
       std::printf("  %5.2fs  pos=%9.1f deg  spd=%7.0f erpm  cur=%6.2f A\n",
@@ -350,7 +378,9 @@ int akMove(SocketCan & bus, uint8_t id, const Args & a)
 
   // 2) 유지
   if (hold_s > 0 && !g_stop) {
-    pump(Clock::now() + std::chrono::duration_cast<Clock::duration>(duration<double>(hold_s)), true);
+    if (!pump(Clock::now() + std::chrono::duration_cast<Clock::duration>(duration<double>(hold_s)), true)) {
+      return aborted();
+    }
     std::printf("유지 %.1f s 후: pos=%.1f deg cur=%.2f A\n", hold_s, last->position_deg, last->current_a);
   }
 

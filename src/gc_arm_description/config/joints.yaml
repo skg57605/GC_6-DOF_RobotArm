@@ -10,10 +10,11 @@
 # TODO(실측/확인): 각 관절 direction/offset/가동범위, AK 극쌍수  (geometry r/h는 CAD로 확정)
 
 # AK 드라이버 설정 확인 결과 (AK Config UI V3.2.0, J2/J3 AK45-36, J5 AK45-10 공통):
-#   CAN 1Mbps, Periodic Feedback 200 Hz, timeout 1000 ms 시 위치 유지,
+#   CAN 1Mbps, Periodic Feedback 200 Hz, timeout 1000 ms (송신 중단 1 s 후 전류 0 A — 위치 유지/토크 해제 부하 시험 필요),
 #   위치 피드백/명령 = 출력축(내장 감속 후) deg 확인 (90° 명령 → 링크 약 35° = 90/2.57),
 #   Bus voltage 12~28 V(회생 여유 4 V 주의), 온도 제한 85 °C (코드 max_temperature 80 °C)
-#   GUI 각도 표시는 0~360°로 되돌아감(내부는 다회전 추종), 전원 재투입 시 다회전 정보 소실
+#   CAN 피드백 위치는 동작 중 다회전 연속값(실측: -345° → +253° 끊김 없음), GUI 표시만 0~360°.
+#   ERPM 환산 실측 일치(3000 ERPM → 출력 약 128°/s, 극쌍수 14). 전원 재투입 시 다회전 정보 소실
 #   (출력축 한 바퀴 내 위치만 유지) → AK 관절은 startup_reference_deg 필수:
 #   전원을 켤 때 관절이 놓여 있는 자세. 실제 자세가 기준에서 ±180°/ratio 이내여야 함
 #   (J2 ±45°, J3 ±90°, J5 ±70°). 범위 밖이면 관절 위치를 360°/ratio 단위로 잘못 인식함.
