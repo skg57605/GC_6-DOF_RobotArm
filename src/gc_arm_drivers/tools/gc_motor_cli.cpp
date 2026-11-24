@@ -23,6 +23,7 @@
 #include "gc_arm_drivers/ak_servo_protocol.hpp"
 #include "gc_arm_drivers/mks_protocol.hpp"
 #include "gc_arm_drivers/socketcan.hpp"
+#include "gc_arm_drivers/tracking_analysis.hpp"
 
 using namespace gc_arm;
 using Clock = std::chrono::steady_clock;
@@ -227,6 +228,23 @@ int cmdMonitor(SocketCan & bus)
 }
 
 // ---------------------------------------------------------------- AK
+/// sweep 결과 요약: 지연 시간, 진폭 비율, 보정 전후 RMS 오차
+void printTracking(const std::vector<double> & t, const std::vector<double> & tgt, const std::vector<double> & meas)
+{
+  auto r = analysis::analyzeTracking(t, tgt, meas);
+  if (!r.valid) {
+    std::printf("추종 분석: 샘플 부족\n");
+    return;
+  }
+  std::printf("추종 분석: 지연 %.0f ms, 진폭 비율 %.2f, RMS 오차 %.2f deg → 지연 보정 시 %.2f deg\n",
+    r.delay_s * 1000.0, r.amplitude_ratio, r.rms_error, r.rms_after_delay);
+  if (r.rms_after_delay < 0.35 * r.rms_error) {
+    std::printf("  → 오차 대부분이 시간 지연: 목표를 약 %.0f ms 앞당겨 보내면 크게 줄어듦\n", r.delay_s * 1000.0);
+  } else {
+    std::printf("  → 지연 보정 후에도 오차가 남음: 진폭 감소/형상 왜곡 (게인·속도 제한 영향)\n");
+  }
+}
+
 int akSweep(SocketCan & bus, uint8_t id, const Args & a)
 {
   if (a.pos.size() < 5) {
@@ -260,6 +278,7 @@ int akSweep(SocketCan & bus, uint8_t id, const Args & a)
   std::optional<ak::servo::Feedback> last;
   double max_err = 0.0;
   size_t fb_count = 0;
+  std::vector<double> log_t, log_tgt, log_meas;
   while (!g_stop) {
     const double t = secondsSince(t0);
     if (t > cycles * period) {break;}
@@ -273,6 +292,9 @@ int akSweep(SocketCan & bus, uint8_t id, const Args & a)
       });
     if (last) {
       max_err = std::max(max_err, std::fabs(target - last->position_deg));
+      log_t.push_back(t);
+      log_tgt.push_back(target);
+      log_meas.push_back(last->position_deg);
       if (csv) {
         csv << t << ',' << target << ',' << last->position_deg << ',' << last->speed_erpm << ','
             << last->current_a << ',' << static_cast<int>(last->temperature_c) << '\n';
@@ -283,6 +305,7 @@ int akSweep(SocketCan & bus, uint8_t id, const Args & a)
   const double elapsed = secondsSince(t0);
   std::printf(
     "완료: 피드백 %.1f Hz, 최대 |목표-측정| %.2f deg (피드백 지연 포함)\n", fb_count / elapsed, max_err);
+  printTracking(log_t, log_tgt, log_meas);
   return 0;
 }
 
@@ -508,6 +531,7 @@ int mksSweep(SocketCan & bus, uint16_t id, const Args & a)
   auto next = t0;
   double max_err = 0.0;
   size_t replies = 0, ticks = 0;
+  std::vector<double> log_t, log_tgt, log_meas;
   std::optional<double> meas;
 
   while (!g_stop) {
@@ -549,6 +573,9 @@ int mksSweep(SocketCan & bus, uint16_t id, const Args & a)
 
     if (meas) {
       max_err = std::max(max_err, std::fabs(target - *meas));
+      log_t.push_back(t);
+      log_tgt.push_back(target);
+      log_meas.push_back(*meas);
       if (csv) {csv << t << ',' << target << ',' << *meas << ',' << cmd_rpm << '\n';}
     }
   }
@@ -558,6 +585,7 @@ int mksSweep(SocketCan & bus, uint16_t id, const Args & a)
     sendFrame(bus, mks::makePosAbsAxis(id, max_rpm, acc, static_cast<int32_t>(*c0)));
   }
   std::printf("완료: 엔코더 응답 %zu/%zu, 최대 |목표-측정| %.2f deg\n", replies, ticks, max_err);
+  printTracking(log_t, log_tgt, log_meas);
   return 0;
 }
 

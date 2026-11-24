@@ -8,6 +8,7 @@
 #include "gc_arm_drivers/joint_config.hpp"
 #include "gc_arm_drivers/joint_conversions.hpp"
 #include "gc_arm_drivers/mks_protocol.hpp"
+#include "gc_arm_drivers/tracking_analysis.hpp"
 
 using namespace gc_arm;
 using conv::kPi;
@@ -161,4 +162,35 @@ TEST(MksActuator, PositionClamp)
   std::vector<CanFrame> out;
   a.commandFrames(3.0, 0.0, out);
   EXPECT_EQ(bytes::getBeInt24(&out[0].data[4]), static_cast<int32_t>(std::lround(conv::mksRadToCounts(20.0))));
+}
+
+TEST(TrackingAnalysis, RecoversDelayAndAmplitude)
+{
+  // 목표: 20 sin(2πt/4), 측정: 0.9 × 목표를 80 ms 지연
+  std::vector<double> t, tgt, meas;
+  for (int i = 0; i < 800; ++i) {
+    const double ti = i * 0.01;
+    t.push_back(ti);
+    tgt.push_back(20.0 * std::sin(2 * kPi * ti / 4.0));
+    meas.push_back(0.9 * 20.0 * std::sin(2 * kPi * (ti - 0.08) / 4.0));
+  }
+  auto r = gc_arm::analysis::analyzeTracking(t, tgt, meas);
+  ASSERT_TRUE(r.valid);
+  EXPECT_NEAR(r.delay_s, 0.08, 0.004);
+  EXPECT_NEAR(r.amplitude_ratio, 0.9, 0.01);
+  EXPECT_LT(r.rms_after_delay, r.rms_error);
+}
+
+TEST(TrackingAnalysis, PureDelayLeavesNoResidual)
+{
+  std::vector<double> t, tgt, meas;
+  for (int i = 0; i < 800; ++i) {
+    const double ti = i * 0.01;
+    t.push_back(ti);
+    tgt.push_back(std::sin(ti));
+    meas.push_back(std::sin(ti - 0.05));
+  }
+  auto r = gc_arm::analysis::analyzeTracking(t, tgt, meas);
+  EXPECT_NEAR(r.delay_s, 0.05, 0.003);
+  EXPECT_LT(r.rms_after_delay, 0.01);
 }
