@@ -68,7 +68,7 @@ joints:
     max_velocity_deg_s: 60.0
     effort_nm: 20.0
     ak_pole_pairs: 14          # 확인 (AK Config UI)
-    ak_internal_ratio: 36      # 확인 (Gear Param Ratio 36), Multi Mode
+    ak_internal_ratio: 36      # 확인 (Gear Param Ratio 36), Multi Mode, ID 102 / 1Mbps / Fdb 200 Hz
     ak_accel: 30000
     ak_torque_constant: 0.0
 
