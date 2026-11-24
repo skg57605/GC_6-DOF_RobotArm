@@ -102,7 +102,7 @@ joints:
     can_id: 103
     ratio: 2.5714285714285716  # 18/7
     direction: 1               # 확인: 모터 각도 + = 전완 수평 시 link5 상승 = URDF +q5 (조립 후 RViz 대조)
-    offset_deg: 0.0            # TODO 조립 후 일직선일 때 모터 Angle A 측정 → offset_deg = -direction × A / ratio
+    offset_deg: 10.461           # 실측: L5-L4 일직선일 때 모터 -26.9° → -(-26.9)/(18/7)
     lower_deg: -120.0
     upper_deg: 120.0
     max_velocity_deg_s: 90.0
