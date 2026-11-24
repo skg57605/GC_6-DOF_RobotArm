@@ -61,14 +61,14 @@ joints:
     type: ak_servo
     can_id: 102
     ratio: 2.0
-    direction: 1
-    offset_deg: 0.0
+    direction: 1               # 확인: 모터 + = 상완 수직·전완 수평에서 전완 상승 = URDF +q3
+    offset_deg: 0.0            # TODO 조립 후 전완-상완 일직선일 때 모터 Angle A → offset_deg = -direction × A / ratio
     lower_deg: -135.0
     upper_deg: 135.0
     max_velocity_deg_s: 60.0
     effort_nm: 20.0
-    ak_pole_pairs: 14
-    ak_internal_ratio: 36
+    ak_pole_pairs: 14          # 확인 (AK Config UI)
+    ak_internal_ratio: 36      # 확인 (Gear Param Ratio 36), Multi Mode
     ak_accel: 30000
     ak_torque_constant: 0.0
 
