@@ -98,6 +98,18 @@ CallbackReturn GcArmSystem::initFromInfo()
       }
     }
 
+    // AK는 전원 재투입 시 출력축 한 바퀴 내 위치만 유지 → 관절 범위가 한 바퀴를 넘으면 기준 자세 필수
+    const auto & c = configs_[i];
+    if (c.type == gc_arm::ActuatorType::AkServo && !c.startup_reference) {
+      const double span_turns = (c.max_position - c.min_position) * c.ratio / (2.0 * M_PI);
+      if (!std::isfinite(span_turns) || span_turns > 1.0) {
+        RCLCPP_FATAL(
+          logger_, "%s: 관절 범위가 모터 출력축 %.2f 바퀴에 해당 → startup_reference 필수 "
+          "(전원 투입 시 놓이는 자세, joints.yaml startup_reference_deg)", joint.name.c_str(), span_turns);
+        return CallbackReturn::ERROR;
+      }
+    }
+
     RCLCPP_INFO(
       logger_, "%s: type=%s can_id=%u ratio=%.6g dir=%+.0f", joint.name.c_str(),
       gc_arm::toString(configs_[i].type), configs_[i].can_id, configs_[i].ratio, configs_[i].direction);
@@ -188,6 +200,9 @@ CallbackReturn GcArmSystem::on_activate(const rclcpp_lifecycle::State &)
     return CallbackReturn::ERROR;
   }
   copyStates();
+  for (const auto & msg : driver_.startupLog()) {
+    RCLCPP_INFO(logger_, "시작 자세 보정 %s", msg.c_str());
+  }
   // 급격한 이동 방지: 명령 = 현재 위치
   for (size_t i = 0; i < pos_cmd_.size(); ++i) {
     pos_cmd_[i] = pos_state_[i];

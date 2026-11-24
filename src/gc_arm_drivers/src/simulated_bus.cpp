@@ -55,6 +55,18 @@ void SimulatedBus::setAkError(uint8_t id, uint8_t error)
   ak_[id].error = error;
 }
 
+void SimulatedBus::setAkWrapFeedback(bool wrap)
+{
+  std::lock_guard<std::mutex> lk(mutex_);
+  ak_wrap_feedback_ = wrap;
+}
+
+void SimulatedBus::setAkPosition(uint8_t id, double deg)
+{
+  std::lock_guard<std::mutex> lk(mutex_);
+  ak_[id].pos_deg = ak_[id].target_deg = deg;
+}
+
 double SimulatedBus::akPositionDeg(uint8_t id) const
 {
   std::lock_guard<std::mutex> lk(mutex_);
@@ -100,7 +112,12 @@ void SimulatedBus::step(Clock::time_point now)
       f.extended = true;
       f.id = (static_cast<uint32_t>(ak::servo::kFeedbackPacketId) << 8) | id;
       f.dlc = 8;
-      bytes::putBe16(&f.data[0], static_cast<uint16_t>(bytes::saturateRound<int16_t>(a.pos_deg * 10.0)));
+      double reported = a.pos_deg;
+      if (ak_wrap_feedback_) {
+        reported = std::fmod(reported, 360.0);
+        if (reported < 0) {reported += 360.0;}
+      }
+      bytes::putBe16(&f.data[0], static_cast<uint16_t>(bytes::saturateRound<int16_t>(reported * 10.0)));
       bytes::putBe16(&f.data[2], static_cast<uint16_t>(bytes::saturateRound<int16_t>(a.vel_deg_s / a.k / 10.0)));
       bytes::putBe16(&f.data[4], static_cast<uint16_t>(bytes::saturateRound<int16_t>(a.current * 100.0)));
       f.data[6] = 30;

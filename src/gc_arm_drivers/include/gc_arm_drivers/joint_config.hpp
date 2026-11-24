@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <optional>
 #include <string>
 
 namespace gc_arm
@@ -40,6 +41,11 @@ struct JointConfig
   double ak_internal_ratio{36.0};   ///< 내장 감속비 (AK45-36: 36, AK45-10: 10)
   double ak_accel_erpm_s2{30000.0}; ///< 위치-속도 모드 가속도 제한
   double ak_torque_constant{0.0};   ///< 출력축 기준 [Nm/A], 0 = 미설정(effort 0 보고)
+  /// 전원 투입 시 관절이 놓여 있는 기준 자세 [rad].
+  /// AK는 전원 재투입 후 출력축 한 바퀴(0~360°) 내 위치만 유지하므로, activate 시
+  /// 이 값에 가장 가까운 회전수(360° 배수)를 선택한다. 실제 자세가 기준에서
+  /// ±180°/ratio 이내여야 올바르게 결정된다. 미설정이면 보정 없음(피드백 값 그대로).
+  std::optional<double> startup_reference;
 
   // MKS
   uint16_t mks_max_rpm{1000};  ///< 모터축 최대 rpm (≤ 3000)
@@ -55,7 +61,7 @@ struct JointConfig
 ///
 /// 키: type(mock|ak_servo|mks), can_id, ratio, direction, offset, min_position, max_position,
 ///     max_velocity, velocity_margin, min_velocity_fraction, catchup_gain,
-///     ak_pole_pairs, ak_internal_ratio, ak_accel, ak_torque_constant,
+///     ak_pole_pairs, ak_internal_ratio, ak_accel, ak_torque_constant, startup_reference,
 ///     mks_max_rpm, mks_acc, velocity_filter, feedback_timeout, max_temperature
 JointConfig parseJointConfig(const std::string & name, const std::map<std::string, std::string> & params);
 

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <map>
 #include <thread>
 
 #include "gc_arm_drivers/arm_driver.hpp"
@@ -182,4 +183,96 @@ TEST(ArmDriver, ActivateFailsWhenMotorMissing)
   d.simulatedBus()->setSilent(2, true);
   EXPECT_FALSE(d.activate(&err));
   EXPECT_NE(err.find("joint4"), std::string::npos) << err;
+}
+
+// ---- AK 회전수 처리: 전원 재투입 후 한 바퀴 내 위치만 남는 실기 동작 대응 ----
+
+namespace
+{
+
+std::vector<JointConfig> akOnly(bool with_reference)
+{
+  std::map<std::string, std::string> p = {
+    {"type", "ak_servo"}, {"can_id", "101"}, {"ratio", "4"}, {"ak_internal_ratio", "36"},
+    {"max_velocity", "3.0"}};
+  if (with_reference) {
+    p["startup_reference"] = std::to_string(M_PI / 2);  // 기준 자세: 관절 90°
+  }
+  return {parseJointConfig("joint2", p)};
+}
+
+void loop(ArmDriver & d, double q, std::chrono::milliseconds dur)
+{
+  std::vector<double> pos = {q}, vel = {std::nan("")};
+  std::vector<ActuatorState> st;
+  std::string err;
+  const auto end = std::chrono::steady_clock::now() + dur;
+  while (std::chrono::steady_clock::now() < end) {
+    d.read(st, &err);
+    ASSERT_TRUE(d.write(pos, vel, &err)) << err;
+    std::this_thread::sleep_for(10ms);
+  }
+}
+
+}  // namespace
+
+TEST(AkTurns, UnwrapsAcross360WhenFeedbackWraps)
+{
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), akOnly(false), &err)) << err;
+  d.simulatedBus()->setAkWrapFeedback(true);
+  ASSERT_TRUE(d.activate(&err)) << err;
+  // 관절 2.0 rad → 액추에이터 8 rad = 458° : 피드백은 98°로 되돌아오지만 연속값으로 추적해야 함
+  loop(d, 2.0, 3000ms);
+  std::vector<ActuatorState> st;
+  ASSERT_TRUE(d.read(st, &err)) << err;
+  EXPECT_NEAR(st[0].position, 2.0, 2e-3);
+  EXPECT_NEAR(d.simulatedBus()->akPositionDeg(101), 8.0 * 180.0 / M_PI, 0.3);
+  // 되돌아올 때도 같은 경로로 (360° 점프 없이)
+  loop(d, 0.0, 3000ms);
+  d.read(st, &err);
+  EXPECT_NEAR(st[0].position, 0.0, 2e-3);
+  EXPECT_NEAR(d.simulatedBus()->akPositionDeg(101), 0.0, 0.3);
+}
+
+TEST(AkTurns, StartupReferenceSelectsTurnAndCommandsMotorFrame)
+{
+  // 실제 관절 100° (액추에이터 400°) 상태에서 전원 재투입 → 모터는 40°로 보고
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), akOnly(true), &err)) << err;
+  d.simulatedBus()->setAkWrapFeedback(true);
+  d.simulatedBus()->setAkPosition(101, 40.0);
+  std::this_thread::sleep_for(30ms);
+  ASSERT_TRUE(d.activate(&err)) << err;
+  ASSERT_EQ(d.startupLog().size(), 1u);
+
+  std::vector<ActuatorState> st;
+  ASSERT_TRUE(d.read(st, &err)) << err;
+  EXPECT_NEAR(st[0].position, 100.0 * M_PI / 180.0, 2e-3) << d.startupLog()[0];
+
+  // 현재 위치를 명령해도 모터가 360° 돌지 않아야 함 (모터 기준 40°로 송신)
+  loop(d, 100.0 * M_PI / 180.0, 300ms);
+  EXPECT_NEAR(d.simulatedBus()->akPositionDeg(101), 40.0, 0.3);
+  // 관절 +10° → 모터 +40°
+  loop(d, 110.0 * M_PI / 180.0, 1500ms);
+  EXPECT_NEAR(d.simulatedBus()->akPositionDeg(101), 80.0, 0.3);
+  d.read(st, &err);
+  EXPECT_NEAR(st[0].position, 110.0 * M_PI / 180.0, 2e-3);
+}
+
+TEST(AkTurns, WithoutReferenceUsesRawAngle)
+{
+  ArmDriver d;
+  std::string err;
+  ASSERT_TRUE(d.configure(simOptions(), akOnly(false), &err)) << err;
+  d.simulatedBus()->setAkWrapFeedback(true);
+  d.simulatedBus()->setAkPosition(101, 40.0);
+  std::this_thread::sleep_for(30ms);
+  ASSERT_TRUE(d.activate(&err)) << err;
+  EXPECT_TRUE(d.startupLog().empty());
+  std::vector<ActuatorState> st;
+  d.read(st, &err);
+  EXPECT_NEAR(st[0].position, 10.0 * M_PI / 180.0, 2e-3);  // 40° / 4
 }

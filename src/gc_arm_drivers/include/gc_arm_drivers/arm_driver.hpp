@@ -59,6 +59,9 @@ public:
   /// can_interface="sim"일 때 시뮬레이션 버스 접근 (시험용), 아니면 nullptr
   SimulatedBus * simulatedBus() {return sim_bus_;}
 
+  /// 마지막 activate에서 결정된 시작 자세 보정 내역 (로그용)
+  const std::vector<std::string> & startupLog() const {return startup_log_;}
+
   size_t errorFrameCount() const {return error_frames_.load();}
   size_t unknownFrameCount() const {return unknown_frames_.load();}
 
@@ -78,6 +81,7 @@ private:
   bool active_{false};
   std::chrono::milliseconds activate_timeout_{1000};
   std::vector<CanFrame> scratch_;
+  std::vector<std::string> startup_log_;
 };
 
 }  // namespace gc_arm

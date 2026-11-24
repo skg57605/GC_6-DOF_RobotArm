@@ -41,7 +41,7 @@ JointConfig parseJointConfig(const std::string & name, const std::map<std::strin
   static const std::set<std::string> known = {
     "type", "can_id", "ratio", "direction", "offset", "min_position", "max_position",
     "max_velocity", "velocity_margin", "min_velocity_fraction", "catchup_gain", "ak_pole_pairs",
-    "ak_internal_ratio", "ak_accel", "ak_torque_constant", "mks_max_rpm", "mks_acc",
+    "ak_internal_ratio", "ak_accel", "ak_torque_constant", "startup_reference", "mks_max_rpm", "mks_acc",
     "velocity_filter", "feedback_timeout", "max_temperature"};
 
   JointConfig c;
@@ -83,6 +83,11 @@ JointConfig parseJointConfig(const std::string & name, const std::map<std::strin
   num("ak_internal_ratio", c.ak_internal_ratio);
   num("ak_accel", c.ak_accel_erpm_s2);
   num("ak_torque_constant", c.ak_torque_constant);
+  if (params.count("startup_reference")) {
+    double ref = 0.0;
+    num("startup_reference", ref);
+    c.startup_reference = ref;
+  }
   num("mks_max_rpm", mks_max_rpm);
   num("mks_acc", mks_acc);
   num("velocity_filter", c.velocity_filter);

@@ -144,6 +144,10 @@ bool ArmDriver::activate(std::string * error)
       }
     }
     if (all_valid) {
+      startup_log_.clear();
+      for (auto & a : actuators_) {
+        if (auto msg = a->resolveStartup(); !msg.empty()) {startup_log_.push_back(msg);}
+      }
       active_ = true;
       return true;
     }

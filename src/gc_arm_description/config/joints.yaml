@@ -13,7 +13,10 @@
 #   CAN 1Mbps, Periodic Feedback 200 Hz, timeout 1000 ms 시 위치 유지,
 #   위치 피드백/명령 = 출력축(내장 감속 후) deg 확인 (90° 명령 → 링크 약 35° = 90/2.57),
 #   Bus voltage 12~28 V(회생 여유 4 V 주의), 온도 제한 85 °C (코드 max_temperature 80 °C)
-#   ⚠️ 미확인: 출력축 각도가 ±360° 밖에서 연속인지(랩어라운드 여부), 전원 재투입 후 다회전 위치 유지 여부
+#   GUI 각도 표시는 0~360°로 되돌아감(내부는 다회전 추종), 전원 재투입 시 다회전 정보 소실
+#   (출력축 한 바퀴 내 위치만 유지) → AK 관절은 startup_reference_deg 필수:
+#   전원을 켤 때 관절이 놓여 있는 자세. 실제 자세가 기준에서 ±180°/ratio 이내여야 함
+#   (J2 ±45°, J3 ±90°, J5 ±70°). 범위 밖이면 관절 위치를 360°/ratio 단위로 잘못 인식함.
 
 hardware:
   can_interface: can0          # 'sim' = 시뮬레이션 버스 (실제 프로토콜 경로를 하드웨어 없이 시험)
@@ -54,6 +57,7 @@ joints:
     effort_nm: 40.0
     ak_pole_pairs: 14          # 확인 (AK Config UI)
     ak_internal_ratio: 36      # 확인 (Gear Param Ratio 36), Multi Mode, ID 101 / 1Mbps / Fdb 200 Hz
+    startup_reference_deg: null   # TODO 전원 투입 시 자세 [deg] — 정해지기 전에는 enabled: true 불가
     ak_accel: 30000            # ERPM/s
     ak_torque_constant: 0.0    # 출력축 Nm/A, 0 = 미설정
 
@@ -70,6 +74,7 @@ joints:
     effort_nm: 20.0
     ak_pole_pairs: 14          # 확인 (AK Config UI)
     ak_internal_ratio: 36      # 확인 (Gear Param Ratio 36), Multi Mode, ID 102 / 1Mbps / Fdb 200 Hz
+    startup_reference_deg: null   # TODO 전원 투입 시 자세 [deg] — 정해지기 전에는 enabled: true 불가
     ak_accel: 30000
     ak_torque_constant: 0.0
 
@@ -100,6 +105,7 @@ joints:
     effort_nm: 5.0
     ak_pole_pairs: 14          # 확인 (AK Config UI)
     ak_internal_ratio: 10      # 확인 (Gear Param Ratio 10)
+    startup_reference_deg: null   # TODO 전원 투입 시 자세 [deg] — 정해지기 전에는 enabled: true 불가
     ak_accel: 30000
     ak_torque_constant: 0.0
 

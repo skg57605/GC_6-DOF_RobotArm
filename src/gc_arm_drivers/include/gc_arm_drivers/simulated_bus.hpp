@@ -32,12 +32,16 @@ public:
   // ---- 시험용 장애 주입 / 조회 ----
   void setSilent(uint32_t id, bool silent);   ///< true면 해당 모터 응답/피드백 중단
   void setAkError(uint8_t id, uint8_t error);
+  /// 모터 기준 위치 강제 설정 (전원 재투입 상황 재현 등)
+  void setAkPosition(uint8_t id, double deg);
   double akPositionDeg(uint8_t id) const;
   int64_t mksCounts(uint16_t id) const;
   bool mksEnabled(uint16_t id) const;
   size_t sentFrames() const;
 
   double feedback_rate_hz{200.0};
+  /// true면 AK 피드백 위치를 [0, 360)으로 되돌림 (실기 GUI 표시와 같은 동작 재현)
+  void setAkWrapFeedback(bool wrap);
 
 private:
   using Clock = std::chrono::steady_clock;
@@ -68,6 +72,7 @@ private:
   std::deque<CanFrame> rx_;
   Clock::time_point last_step_{Clock::now()};
   size_t sent_{0};
+  bool ak_wrap_feedback_{false};
 };
 
 }  // namespace gc_arm

@@ -28,6 +28,9 @@
         <param name="ak_internal_ratio">${j['ak_internal_ratio']}</param>
         <param name="ak_accel">${j['ak_accel']}</param>
         <param name="ak_torque_constant">${j['ak_torque_constant']}</param>
+        <xacro:if value="${j.get('startup_reference_deg') is not None}">
+          <param name="startup_reference">${radians(j['startup_reference_deg'])}</param>
+        </xacro:if>
       </xacro:if>
       <xacro:if value="${j['type'] == 'mks'}">
         <param name="mks_max_rpm">${j['mks_max_rpm']}</param>

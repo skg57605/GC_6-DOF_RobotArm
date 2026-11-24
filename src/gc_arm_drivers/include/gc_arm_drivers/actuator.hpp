@@ -4,6 +4,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "gc_arm_drivers/can_frame.hpp"
@@ -42,6 +43,8 @@ public:
 
   /// 활성화 시 보낼 프레임 (예: MKS enable)
   virtual void activateFrames(std::vector<CanFrame> & /*out*/) {}
+  /// 첫 피드백 수신 후, 활성화 직전에 호출 (예: AK 회전수 결정). 설명 문자열 반환(로그용)
+  virtual std::string resolveStartup() {return {};}
   /// 비활성화 시 보낼 프레임
   virtual void deactivateFrames(std::vector<CanFrame> & /*out*/) {}
   /// 매 주기 상태 조회 요청 (예: MKS 0x31)
@@ -76,12 +79,29 @@ public:
 };
 
 /// CubeMars AK, Servo 모드. 명령 = 위치-속도 루프(mode 6), 상태 = 주기 피드백(0x29)
+///
+/// 위치 처리:
+///  - 피드백 각도를 연속값으로 이어 붙임(unwrap): 한 번에 180° 넘게 바뀌면 360° 경계 통과로 판단.
+///    (피드백이 0~360°로 되돌아가거나 int16 범위를 넘는 경우 모두 대응)
+///  - resolveStartup(): startup_reference에 가장 가까운 회전수를 골라 turn_offset(360° 배수)을 정함.
+///    명령은 다시 모터 기준 각도(= 관절 환산 각도 - turn_offset)로 보낸다.
 class AkServoActuator : public Actuator
 {
 public:
   explicit AkServoActuator(JointConfig c) : Actuator(std::move(c)) {}
   void commandFrames(double position, double velocity, std::vector<CanFrame> & out) override;
   bool handleFrame(const CanFrame & frame, SteadyClock::time_point now) override;
+  std::string resolveStartup() override;
+
+  /// 시험/로그용: 모터 기준 연속 각도 [deg], 선택된 회전 보정 [deg]
+  double motorAngleDeg() const;
+  double turnOffsetDeg() const;
+
+private:
+  bool have_raw_{false};
+  double last_raw_deg_{0.0};
+  double unwrapped_deg_{0.0};   // 모터 기준 연속 각도
+  double turn_offset_deg_{0.0}; // 360° 배수
 };
 
 /// MKS SERVO42D/57D. 명령 = 0xF5 절대위치(축 좌표), 상태 = 0x31 폴링 + 위치 미분 속도

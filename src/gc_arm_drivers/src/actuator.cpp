@@ -1,6 +1,7 @@
 #include "gc_arm_drivers/actuator.hpp"
 
 #include <cmath>
+#include <cstdio>
 
 #include "gc_arm_drivers/ak_servo_protocol.hpp"
 #include "gc_arm_drivers/joint_conversions.hpp"
@@ -36,8 +37,16 @@ void MockActuator::setPosition(double q)
 void AkServoActuator::commandFrames(double position, double velocity, std::vector<CanFrame> & out)
 {
   const double q = conv::clampPosition(config_, position);
-  const double act_deg = conv::rad2deg(conv::jointToActuator(config_, q));
-  const double speed_joint = conv::jointSpeedLimit(config_, velocity, q - state().position);
+  double turn_offset = 0.0;
+  double measured = 0.0;
+  {
+    std::lock_guard<std::mutex> lk(mutex_);
+    turn_offset = turn_offset_deg_;
+    measured = state_.position;
+  }
+  // 관절 환산 액추에이터 각도 → 모터 기준 각도
+  const double act_deg = conv::rad2deg(conv::jointToActuator(config_, q)) - turn_offset;
+  const double speed_joint = conv::jointSpeedLimit(config_, velocity, q - measured);
   const double speed_erpm = conv::akRadSToErpm(config_, speed_joint * config_.ratio);
   out.push_back(ak::servo::makePositionSpeed(
       static_cast<uint8_t>(config_.can_id), act_deg, speed_erpm, config_.ak_accel_erpm_s2));
@@ -50,7 +59,17 @@ bool AkServoActuator::handleFrame(const CanFrame & frame, SteadyClock::time_poin
     return false;
   }
   std::lock_guard<std::mutex> lk(mutex_);
-  state_.position = conv::actuatorToJoint(config_, conv::deg2rad(fb->position_deg));
+  if (!have_raw_) {
+    unwrapped_deg_ = fb->position_deg;
+    have_raw_ = true;
+  } else {
+    double d = fb->position_deg - last_raw_deg_;
+    if (d > 180.0) {d -= 360.0;}
+    if (d < -180.0) {d += 360.0;}
+    unwrapped_deg_ += d;
+  }
+  last_raw_deg_ = fb->position_deg;
+  state_.position = conv::actuatorToJoint(config_, conv::deg2rad(unwrapped_deg_ + turn_offset_deg_));
   state_.velocity = conv::actuatorVelToJoint(config_, conv::akErpmToRadS(config_, fb->speed_erpm));
   state_.current = fb->current_a;
   state_.effort = config_.direction * fb->current_a * config_.ak_torque_constant * config_.ratio;
@@ -59,6 +78,36 @@ bool AkServoActuator::handleFrame(const CanFrame & frame, SteadyClock::time_poin
   state_.valid = true;
   state_.stamp = now;
   return true;
+}
+
+std::string AkServoActuator::resolveStartup()
+{
+  if (!config_.startup_reference) {
+    return {};
+  }
+  std::lock_guard<std::mutex> lk(mutex_);
+  // 관절 기준 자세에 해당하는 액추에이터 각도와 현재 모터 각도의 차이를 360° 단위로 반올림
+  const double ref_act_deg = conv::rad2deg(conv::jointToActuator(config_, *config_.startup_reference));
+  const double k = std::round((ref_act_deg - unwrapped_deg_) / 360.0);
+  turn_offset_deg_ = 360.0 * k;
+  state_.position = conv::actuatorToJoint(config_, conv::deg2rad(unwrapped_deg_ + turn_offset_deg_));
+  char buf[200];
+  std::snprintf(buf, sizeof(buf), "%s: 모터 %.1f deg, 회전 보정 %+.0f deg → 관절 %.2f deg (기준 %.1f deg)",
+    config_.name.c_str(), unwrapped_deg_, turn_offset_deg_, conv::rad2deg(state_.position),
+    conv::rad2deg(*config_.startup_reference));
+  return buf;
+}
+
+double AkServoActuator::motorAngleDeg() const
+{
+  std::lock_guard<std::mutex> lk(mutex_);
+  return unwrapped_deg_;
+}
+
+double AkServoActuator::turnOffsetDeg() const
+{
+  std::lock_guard<std::mutex> lk(mutex_);
+  return turn_offset_deg_;
 }
 
 // ------------------------------------------------------------------ MKS
