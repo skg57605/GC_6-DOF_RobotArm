@@ -286,10 +286,95 @@ int akSweep(SocketCan & bus, uint8_t id, const Args & a)
   return 0;
 }
 
+/// 목표에 도달할 때까지 위치-속도 명령을 계속 송신 (모터 timeout 방지), 이후 유지/관찰
+int akMove(SocketCan & bus, uint8_t id, const Args & a)
+{
+  if (a.pos.size() < 4) {
+    std::fprintf(stderr,
+      "사용법: ak <id> move <목표deg> [--spd 3000] [--acc 10000] [--rate 100] [--tol 0.5] [--timeout_s 15]\n"
+      "                    [--hold 초] [--observe 초]\n"
+      "  --hold    : 도달 후 목표를 계속 송신하며 유지하는 시간\n"
+      "  --observe : 이후 송신을 멈추고 위치·전류 관찰 (모터 timeout 동작 확인용)\n");
+    return 1;
+  }
+  const double target = std::stod(a.pos[3]);
+  const double spd = a.num("spd", 3000);
+  const double acc = a.num("acc", 10000);
+  const double rate = a.num("rate", 100);
+  const double tol = a.num("tol", 0.5);
+  const double timeout_s = a.num("timeout_s", 15);
+  const double hold_s = a.num("hold", 0);
+  const double observe_s = a.num("observe", 0);
+
+  auto fb0 = waitAkFeedback(bus, id, milliseconds(1000));
+  if (!fb0) {
+    std::fprintf(stderr, "AK id=%u 피드백 없음\n", id);
+    return 1;
+  }
+  std::printf("시작 %.1f deg → 목표 %.1f deg (%.0f ERPM, %.0f ERPM/s, %g Hz 송신)\n",
+    fb0->position_deg, target, spd, acc, rate);
+
+  const auto dt = std::chrono::duration_cast<Clock::duration>(duration<double>(1.0 / rate));
+  std::optional<ak::servo::Feedback> last = fb0;
+  auto pump = [&](Clock::time_point until, bool send) {
+      auto next = Clock::now();
+      while (!g_stop && Clock::now() < until) {
+        if (send) {sendFrame(bus, ak::servo::makePositionSpeed(id, target, spd, acc));}
+        next += dt;
+        receiveUntil(bus, next, [&](const CanFrame & f) {
+            auto fb = ak::servo::parseFeedback(f);
+            if (fb && fb->driver_id == id) {last = fb;}
+            return false;
+          });
+      }
+    };
+
+  // 1) 이동
+  const auto t0 = Clock::now();
+  double next_print = 0.0;
+  bool reached = false;
+  while (!g_stop && secondsSince(t0) < timeout_s) {
+    pump(Clock::now() + dt, true);
+    const double t = secondsSince(t0);
+    if (t >= next_print) {
+      std::printf("  %5.2fs  pos=%9.1f deg  spd=%7.0f erpm  cur=%6.2f A\n",
+        t, last->position_deg, last->speed_erpm, last->current_a);
+      next_print += 0.2;
+    }
+    if (std::fabs(last->position_deg - target) < tol && std::fabs(last->speed_erpm) < 50) {
+      reached = true;
+      break;
+    }
+  }
+  std::printf("%s: pos=%.1f deg (%.2f s)\n", reached ? "도달" : "시간 초과/중단", last->position_deg, secondsSince(t0));
+
+  // 2) 유지
+  if (hold_s > 0 && !g_stop) {
+    pump(Clock::now() + std::chrono::duration_cast<Clock::duration>(duration<double>(hold_s)), true);
+    std::printf("유지 %.1f s 후: pos=%.1f deg cur=%.2f A\n", hold_s, last->position_deg, last->current_a);
+  }
+
+  // 3) 송신 중단 후 관찰 (모터 timeout 동작)
+  if (observe_s > 0 && !g_stop) {
+    std::printf("송신 중단 → %.1f s 관찰 (모터 timeout 이후 위치 유지/토크 해제 여부)\n", observe_s);
+    const auto t1 = Clock::now();
+    double np = 0.0;
+    while (!g_stop && secondsSince(t1) < observe_s) {
+      pump(Clock::now() + dt, false);
+      const double t = secondsSince(t1);
+      if (t >= np) {
+        std::printf("  +%5.2fs  pos=%9.1f deg  cur=%6.2f A\n", t, last->position_deg, last->current_a);
+        np += 0.25;
+      }
+    }
+  }
+  return reached ? 0 : 2;
+}
+
 int cmdAk(SocketCan & bus, const Args & a)
 {
   if (a.pos.size() < 3) {
-    std::fprintf(stderr, "사용법: ak <id> <status|pos|posspd|rpm|current|brake|release|origin|sweep> ...\n");
+    std::fprintf(stderr, "사용법: ak <id> <status|pos|posspd|move|rpm|current|brake|release|origin|sweep> ...\n");
     return 1;
   }
   const uint8_t id = static_cast<uint8_t>(std::stoi(a.pos[1], nullptr, 0));
@@ -313,6 +398,9 @@ int cmdAk(SocketCan & bus, const Args & a)
   }
   if (sub == "sweep") {
     return akSweep(bus, id, a);
+  }
+  if (sub == "move") {
+    return akMove(bus, id, a);
   }
 
   CanFrame f;
@@ -731,7 +819,10 @@ void printUsage()
 
   ak <id> status [--count N]                Servo 모드 피드백 출력
   ak <id> pos <deg>                         위치 루프 (mode 4)
-  ak <id> posspd <deg> [--spd erpm] [--acc erpm/s2]   위치-속도 루프 (mode 6)
+  ak <id> posspd <deg> [--spd erpm] [--acc erpm/s2]   위치-속도 루프 (mode 6), 1회 송신
+                                            ⚠️ 모터 timeout(1 s) 안에 도달 못 하면 멈춤 → 큰 이동은 move 사용
+  ak <id> move <deg> [--spd 3000] [--acc 10000] [--hold s] [--observe s]
+                                            도달할 때까지 100 Hz로 계속 송신, 이후 유지/송신 중단 관찰
   ak <id> rpm <erpm>                        속도 루프
   ak <id> current <A> | brake <A>           전류 / 브레이크 전류
   ak <id> release                           전류 0 (토크 해제 — 중력 부하 주의!)
